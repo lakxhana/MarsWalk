@@ -1,5 +1,5 @@
+import {preflight} from '@/lib/preflight';
 import {makeRouteTasks} from '@/lib/fieldworkPlan';
-import CrewOperationsPanel from '@/components/CrewOperationsPanel';
 import { DEFAULT_OPERATIONS, STUDIES, startStop, finishStop, recordEvidence, operationsReport, type CrewOperations } from '@/lib/crewOperations';
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import CrewFieldPanel from '@/components/CrewFieldPanel';
@@ -364,8 +364,9 @@ export default function App({initialMission}: {initialMission?: PersistedMission
 
   const handleStartNavigation = useCallback((route?: RoutePlanSummary, eva?: EVAPlanSummary) => {
     const freshSessionId = Date.now();
-    const activeRoute = route || plannedRoute;
+    const activeRoute = route;
     if(!activeRoute?.success || activeRoute.points.length < 2) {setView('plan');return;}
+    const issues=preflight(activeRoute,crewOperations,missionBudgetMinutes,reserveMinutes).errors;if(issues.length){setMissionSaveError(issues.join(' '));setView('plan');return;}setMissionSaveError(null);
     if (eva) setEvaPlan(eva);
     if (activeRoute?.success && activeRoute.points.length >= 2) {
       setPlannedRoute(activeRoute);
@@ -405,13 +406,13 @@ export default function App({initialMission}: {initialMission?: PersistedMission
     setSimulationPaused(false);
     setJourneyState('navigate');
     setView('walk');
-  }, [plannedRoute, simTime, crewOperations.plannedStops, crewOperations.stopLimitMinutes]);
+  }, [simTime, crewOperations, missionBudgetMinutes, reserveMinutes]);
 
   return (
     <div data-ui-system="field" className="app-shell flex h-screen w-screen flex-col overflow-hidden bg-[var(--surface)] font-sans text-[var(--text-primary)] antialiased">
       {<Header
         currentView={view}
-        onNavigate={(next) => { if(next === 'notebook') setFieldPanelOpen(open => !open); else {setFieldPanelOpen(false);if(next === 'walk' && missionStartedAtSimTime === null) handleStartNavigation(); else setView(next);} }}
+        onNavigate={(next) => { if(next === 'notebook') setFieldPanelOpen(open => !open); else {setFieldPanelOpen(false);if(next === 'walk' && (missionStartedAtSimTime === null || !plannedRoute?.success)) setView('plan'); else setView(next);} }}
         role={role}
         onChangeRole={(newRole) => {
           setFieldPanelOpen(false);
@@ -446,7 +447,7 @@ export default function App({initialMission}: {initialMission?: PersistedMission
         )}
         {/* VIEW 1: PLAN SCREEN (2D Primary Fieldwork Map) */}
         {view === 'plan' && (
-          <NamedSitePlanner setupPanel={<CrewOperationsPanel setup reserve={reserveMinutes} onReserve={setReserveMinutes} budget={missionBudgetMinutes} onBudget={setMissionBudgetMinutes} state={crewOperations} now={simTime} onChange={setCrewOperations}/>} reserve={reserveMinutes} earth={role==='science_team'} tasks={crewOperations.routeTasks} budget={missionBudgetMinutes} stops={crewOperations.plannedStops??3} stopMinutes={crewOperations.stopLimitMinutes} onStart={route=>{handleStartNavigation(route);if(role==='science_team')setView('science');}}/>
+          <NamedSitePlanner crew={crewOperations} onCrew={setCrewOperations} now={simTime} onBudget={setMissionBudgetMinutes} onReserve={setReserveMinutes} reserve={reserveMinutes} earth={role==='science_team'} budget={missionBudgetMinutes} onStart={route=>{handleStartNavigation(route);if(role==='science_team')setView('science');}}/>
         )}
 
         {/* VIEW 2: WALK AND INSPECT (3D Terrain Walk) */}

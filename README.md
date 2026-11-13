@@ -1,8 +1,8 @@
-# MARSWalk 1.5.4
+# MARSWalk 1.5.5
 
 ## Run
 
-Use Node.js **22.12 or newer**. Extract the ZIP, open Terminal in the extracted `MARSWalk-1.5.4` folder, and run:
+Use Node.js **22.12 or newer**. Extract the ZIP, open Terminal in the extracted `MARSWalk-1.5.5` folder, and run:
 
 ```bash
 npm start
@@ -78,6 +78,14 @@ Tests cover named-route connectivity, source coordinates and weather values, act
 
 Chromium cannot launch in this execution environment because local socket creation is blocked. Visual browser/tablet rendering and camera/microphone permission flows require checking on your device. The new interaction tests exercise React state/effects but do not substitute for browser layout tests.
 
-## Layout update (1.5.4)
+## Layout update (1.5.5)
 
 Route selection and crew/fieldwork settings share one scrollable left sidebar. The map occupies the remaining width. The walking sidebar (including observation recording) is also on the left. Functions and terrain rendering are unchanged.
+
+## Preflight (1.5.5)
+
+Walk is no longer a navigation tab. Only submitting a valid route plan starts a new walk. Return to active walk appears only during an existing mission. Crew, route tasks, time/oxygen, and optional health are independent expandable panels. Required blanks, invalid numbers, unnamed tasks, task overruns, insufficient mission time and insufficient model oxygen endurance prevent starting. Previously entered drafts are not replaced by automatic recommendations; Use calculated time & endurance is explicit.
+
+Oxygen calculation: NASA BVAD Revision 2 (February 2022), Table 4-70, printed page 135, specifies typical EVA metabolic consumption 0.086 kg per crewmember per hour. We convert to 86 g/person/hour. Source: https://ntrs.nasa.gov/api/citations/20210024855/downloads/BVAD_2.15.22-final.pdf#page=149 . This is a reference baseline, not individualized Mars physiological validation. Editable additional suit losses default to zero (idealized). Rate = metabolic consumption + configured loss, in g/h. Model required mass = rate × time in minutes / 60. Route demand includes out-and-back travel, tasks and the larger of mission/O2 reserve, avoiding double counting those route reserves. Full-budget demand covers mission duration plus O2 reserve. Start requires endurance sufficient for the full budget plus O2 reserve. Model supply is endurance × rate / 60, not measured bottle contents. Runtime still consumes the entered endurance with elapsed time including stops; this is algebraically equivalent to constant-rate mass consumption.
+
+Actual tank fill/pressure sizing requires suit-specific leakage, purge demand, usable bottle mass, residual pressure, gas temperature and certified system limits. None are known, so the UI does not claim this estimate is an operational tank-fill prescription. No AI-generated oxygen recommendations. Route speed 1.1 m/s, five-minute task defaults, mission/reserve defaults and task locations are clearly scenario assumptions. Source coordinates supply distance only; terrain suitability and speed are not scientifically validated by this planner. Health entries remain optional because no sensors are connected.

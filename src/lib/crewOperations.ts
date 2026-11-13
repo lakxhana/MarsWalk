@@ -12,6 +12,7 @@ export interface CrewOperations {
   previousWalks?: Array<{name:string;destination:string;started:number;ended:number;stops:InvestigationStop[];finding:string;records:number}>;
   routeTasks?:RouteTask[];
   plannedStops?:number;
+  oxygenRateGph?:number; oxygenLossGph?:number;
   health?:HealthReadings;
   name:string; tankId:string; oxygenMinutes:number; oxygenReserveMinutes:number; stopLimitMinutes:number;
   study:StudyId; stops:InvestigationStop[]; observationIds:string[]; missionStart:number|null;

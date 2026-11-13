@@ -40,7 +40,7 @@ async function run(){await act(async()=>{ui=create(createElement(FieldWalk,props
  const estimate=estimateFieldwork(660,1.1,makeRouteTasks(3,5),10);assert.equal(estimate.travel,10);assert.equal(estimate.total,45);
  const livePacket={...packets[packets.length-1],deliveredAtSimTime:500};const liveMarkup=renderToStaticMarkup(createElement(EarthTeamMonitoring,{...base,messages:[livePacket],simTime:500,oneWayDelayMinutes:0}));assert.match(liveMarkup,/Live demo/);assert.match(liveMarkup,/88 bpm/);assert.match(liveMarkup,/100%/);
  const setup=renderToStaticMarkup(createElement(CrewOperationsPanel,{setup:true,state:{...crew,plannedStops:4},now,budget:75,onBudget:()=>{},onChange:()=>{}}));assert.match(setup,/Mission duration/);assert.match(setup,/Planned observation stops/);assert.match(setup,/value="75"/);
- const plan=renderToStaticMarkup(createElement(NamedSitePlanner,{onStart:()=>{},budget:60,stops:4,stopMinutes:7}));assert.match(plan,/28 min observing/);
+ const plan=renderToStaticMarkup(createElement(NamedSitePlanner,{onStart:()=>{},budget:60,stops:4,stopMinutes:7}));assert.match(plan,/Observe 28 min/);
  assert.ok(after.indexOf('class="earth-progress"')>after.indexOf('<aside'),'Earth progress is in sidebar');
  await act(async()=>{ui.unmount();});console.log('PASS named sites, sourced weather, mounted walking/pause/resume/arrival, background progress and delayed Earth operations');}
 run().then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1);});

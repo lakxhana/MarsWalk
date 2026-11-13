@@ -23,17 +23,17 @@ interface HeaderProps {
 }
 
 export default function Header({ currentView, onNavigate, role, onChangeRole, simTime,
-  oneWayDelayMinutes, onSetOneWayDelayMinutes }: HeaderProps) {
+  oneWayDelayMinutes, onSetOneWayDelayMinutes, missionActive }: HeaderProps) {
   const [moreOpen, setMoreOpen] = useState(false);
   const primary: {id: AppView; label: string}[] = role === 'explorer'
-    ? [{id: 'globe', label: 'Explore Mars'}, {id: 'plan', label: 'Plan route'}, {id: 'walk', label: 'Walk'}, {id: 'notebook', label: 'Field log'}]
+    ? [{id: 'globe', label: 'Explore Mars'}, {id: 'plan', label: 'Plan route'}, {id: 'notebook', label: 'Field log'}]
     : [{id:'plan',label:'Plan mission'},{id: 'science', label: 'Mission support'}];
   return <header className="mission-header">
-    <div className="mission-brand"><span className="brand-orbit" aria-hidden="true"/><strong>MARSWALK</strong><span className="prototype-label">Research simulation · 1.5.4</span></div>
+    <div className="mission-brand"><span className="brand-orbit" aria-hidden="true"/><strong>MARSWALK</strong><span className="prototype-label">Research simulation · 1.5.5</span></div>
     <nav aria-label="Main navigation" className="mission-nav">
       {primary.map(item => <button key={item.id} aria-current={currentView === item.id ? 'page' : undefined} onClick={() => onNavigate(item.id)}>{item.label}</button>)}
     </nav>
-    <div className="mission-tools">
+    <div className="mission-tools">{missionActive&&currentView!=='walk'&&role==='explorer'&&<button className="quiet-button" onClick={()=>onNavigate('walk')}>Return to active walk</button>}
       <label className="sr-only" htmlFor="workspace">Workspace</label>
       <select id="workspace" value={role} onChange={e => onChangeRole(e.target.value as UserRole)}><option value="explorer">Mars crew</option><option value="science_team">Earth team</option></select>
       <div className="relative"><button aria-label="More options" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} className="quiet-button">•••</button>

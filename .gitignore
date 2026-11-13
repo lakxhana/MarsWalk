@@ -27,17 +27,14 @@ data/*.sqlite*
 
 node_modules/
 dist/
+data/
 .env
 .env.*
 !.env.example
-data/
-*.sqlite*
-.DS_Store
-
-data/
 *.db
 *.db-*
 *.sqlite
 *.sqlite-*
 *.sqlite3
 *.sqlite3-*
+.DS_Store
