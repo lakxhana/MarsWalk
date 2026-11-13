@@ -1,0 +1,16 @@
+import { strict as assert } from 'node:assert';
+import { messagesForSide } from '../src/lib/missionMessages';
+import type { CommMessage } from '../src/lib/storage';
+const base:CommMessage = {id:'up',kind:'chat',direction:'uplink',observationId:'',siteId:'mission',siteName:'Crew',taskId:null,questionText:'Crew update',originalPlanVersion:1,originalPlanSummary:'',status:'in_transit',sentAtSimTime:100,deliveredAtSimTime:400};
+const down:CommMessage = {...base,id:'down',direction:'downlink',questionText:'Earth guidance',deliveredAtSimTime:500};
+assert.deepEqual(messagesForSide([base,down],'mars',200).map(m=>m.id), ['up']);
+assert.deepEqual(messagesForSide([base,down],'earth',200).map(m=>m.id), ['down']);
+assert.deepEqual(messagesForSide([base,down],'earth',400).map(m=>m.id), ['up','down']);
+assert.deepEqual(messagesForSide([base,down],'mars',500).map(m=>m.id), ['up','down']);
+const answered:CommMessage={...base,kind:'question',replyText:'Reply content',replySentAtSimTime:410,replyDeliveredAtSimTime:710,status:'replied'};
+assert.equal(messagesForSide([answered],'mars',500)[0].replyText,undefined);
+assert.equal(messagesForSide([answered],'mars',500)[0].status,'delivered');
+assert.equal(messagesForSide([answered],'mars',710)[0].replyText,'Reply content');
+assert.equal(messagesForSide([answered],'earth',500)[0].replyText,'Reply content');
+assert.equal(answered.replyText,'Reply content');
+console.log('PASS 9 bidirectional message visibility, exact delivery boundary, reply secrecy and immutability checks');

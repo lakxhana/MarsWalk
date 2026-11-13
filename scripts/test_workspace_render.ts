@@ -1,0 +1,26 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { strict as assert } from 'node:assert';
+import Header from '../src/components/Header';
+import MissionConversation from '../src/components/MissionConversation';
+import type { CommMessage } from '../src/lib/storage';
+const noop = () => {};
+const header = renderToStaticMarkup(createElement(Header,{currentView:'globe',role:'explorer',onNavigate:noop,onChangeRole:noop,simTime:0,simulationPaused:true,missionActive:false,onToggleSimulation:noop,oneWayDelayMinutes:5,onSetOneWayDelayMinutes:noop,onAdvanceSimTime:noop,simulationSpeedMultiplier:1,onSetSimulationSpeedMultiplier:noop,statusUpdateIntervalSeconds:10,onSetStatusUpdateIntervalSeconds:noop}));
+assert.match(header,/aria-current="page">Explore Mars/);
+assert.match(header,/Field log/);
+assert.doesNotMatch(header,/Demo controls/);
+const pending:CommMessage={id:'secret',kind:'chat',direction:'uplink',status:'in_transit',observationId:'',siteId:'',siteName:'',taskId:null,questionText:'NOT_YET_DELIVERED',originalPlanVersion:0,originalPlanSummary:'',sentAtSimTime:0,deliveredAtSimTime:300};
+const props = {messages:[pending],side:'earth' as const,simTime:100,delay:5,paused:false,reload:async()=>{}};
+assert.doesNotMatch(renderToStaticMarkup(createElement(MissionConversation,props)),/NOT_YET_DELIVERED/);
+assert.match(renderToStaticMarkup(createElement(MissionConversation,{...props,simTime:300})),/NOT_YET_DELIVERED/);
+assert.match(renderToStaticMarkup(createElement(MissionConversation,{...props,side:'mars'})),/In transit/);
+console.log('PASS 6 workspace-render checks: globe navigation, field log and delayed conversation visibility');
+
+import CrewOperationsPanel,{OperationsReceived} from '../src/components/CrewOperationsPanel';
+import {DEFAULT_OPERATIONS,startStop,operationsReport} from '../src/lib/crewOperations';
+const stopped=startStop({...DEFAULT_OPERATIONS,name:'Alex',missionStart:0},10);
+const crewHtml=renderToStaticMarkup(createElement(CrewOperationsPanel,{state:stopped,now:310,onChange:noop,arrived:true}));
+assert.match(crewHtml,/Alex/);assert.match(crewHtml,/Investigating 5:00/);assert.match(crewHtml,/Limit exceeded/);assert.match(crewHtml,/no sensor/);assert.match(crewHtml,/Upload a context photo/);
+const receivedHtml=renderToStaticMarkup(createElement(OperationsReceived,{report:operationsReport(stopped,310)}));
+assert.match(receivedHtml,/limit exceeded/i);assert.match(receivedHtml,/5:00/);
+console.log('PASS crew/received report render: identity, stop warning, tasks and absent sensors');

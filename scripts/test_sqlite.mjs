@@ -1,0 +1,34 @@
+import { strict as assert } from 'node:assert';
+import { mkdtempSync,rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { openDatabase } from '../server/database.mjs';
+const folder=mkdtempSync(join(tmpdir(),'marswalk-db-'));
+const file=join(folder,'mission.sqlite');
+let db=openDatabase(file);
+try {
+  const id=db.databaseId;
+  const note={id:'note-1',siteId:'walk-route',note:'Observed layers',timestamp:new Date().toISOString(),location:{x:4,z:5},audioRef:'data:audio/webm;base64,AAAA',imageRef:'data:image/png;base64,AAAA'};
+  const msg={id:'message-1',direction:'uplink',questionText:'Please review',sentAtSimTime:100,deliveredAtSimTime:400};
+  const task={id:'task-1',title:'Survey',status:'pending'};
+  db.put('observations',note);db.put('messages',msg);db.put('tasks',task);
+  db.saveMission({simTime:200,surfacePose:{x:4,z:5},view:'globe'});
+  db.close();db=openDatabase(file);
+  assert.equal(db.databaseId,id);
+  assert.deepEqual(db.list('observations')[0],note);
+  assert.deepEqual(db.list('messages')[0],msg);
+  assert.equal(db.getMission().simTime,200);
+  db.seed([{...task,title:'Do not overwrite existing'}]);assert.equal(db.list('tasks')[0].title,'Survey');
+  db.put('messages',{...msg,replyText:'Proceed',replySentAtSimTime:450,replyDeliveredAtSimTime:750});
+  db.put('messages',{...msg,status:'delivered'});assert.equal(db.list('messages')[0].replyText,'Proceed');
+  assert.throws(()=>db.put('messages',{...msg,deliveredAtSimTime:0}));
+  assert.throws(()=>db.list('mission; DROP TABLE observations'));
+  assert.throws(()=>db.importRecords({observations:[{...note,id:'must-not-save'}],messages:[{id:'invalid'}],tasks:[]}));
+  assert.equal(db.list('observations').length,1);
+  const imported={observations:[{...note,note:'old copy'}],messages:[],tasks:[]};
+  db.importRecords(imported,'browser-1');assert.equal(db.list('observations')[0].note,'Observed layers');
+  assert.equal(db.importRecords(imported,'browser-1').migrated,false);
+  db.remove('messages',['message-1']);assert.equal(db.list('messages').length,0);
+  assert.equal(db.list('observations')[0].audioRef,note.audioRef);
+  console.log('PASS 14 SQLite checks: disk persistence, mission restore, attachments, migration, validation, safe merging and deletion');
+} finally {db.close();rmSync(folder,{recursive:true,force:true});}

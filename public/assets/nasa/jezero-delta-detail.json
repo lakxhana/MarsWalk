@@ -1,0 +1,12 @@
+{
+  "source": "https://trek.nasa.gov/tiles/Mars/EQ/JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first_dd",
+  "zoom": 17,
+  "west": 77.40280151367188,
+  "east": 77.40829467773438,
+  "north": 18.461151123046875,
+  "south": 18.455657958984375,
+  "width": 1024,
+  "height": 1024,
+  "credit": "NASA / JPL / University of Arizona \u00b7 Mars Trek HiRISE mosaic",
+  "asset": "/assets/nasa/jezero-delta-detail.jpg"
+}

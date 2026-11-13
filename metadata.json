@@ -1,0 +1,8 @@
+{
+  "name": "MarsWalk",
+  "description": "Interactive Jezero Crater exploration planner, scientific observation notebook, and simulated speed-of-light communication delay coordinator with NASA evidence.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
