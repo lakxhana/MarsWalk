@@ -12,7 +12,7 @@ export function surfaceAt(x:number,z:number,regional:boolean){
  const dx=(b.x-a.x)/grid.cols,dz=(b.z-a.z)/grid.rows;
  return {elevation:westElevation(x,z),slope:gradientDegrees(westElevation(x+dx,z),westElevation(x-dx,z),westElevation(x,z-dz),westElevation(x,z+dz),dx,dz),spacing:Math.max(dx,dz),source:grid.source};
 }
-export const SITE_SCIENCE:Record<string,{geology:string;activity:string;url:string}>={
- 'Skinner Ridge':{geology:'Layered sandstone; coarser grains than Wildcat Ridge.',activity:'Perseverance abraded rock on sol 482 (29 June 2022).',url:'https://science.nasa.gov/resource/two-abrasion-patches-from-perseverance-at-jezero-delta/'},
- 'Wildcat Ridge':{geology:'Fine-grained, sulfate-bearing mudstone.',activity:'Perseverance abraded rock on sol 504 (21 July 2022).',url:'https://science.nasa.gov/resource/two-abrasion-patches-from-perseverance-at-jezero-delta/'}
+export const SITE_SCIENCE:Record<string,{geology:string;activity:string;shortGeology:string;shortActivity:string;url:string}>={
+ 'Skinner Ridge':{shortGeology:'Layered sandstone',shortActivity:'Abrasion · sol 482',geology:'Layered sandstone; coarser grains than Wildcat Ridge.',activity:'Perseverance abraded rock on sol 482 (29 June 2022).',url:'https://science.nasa.gov/resource/two-abrasion-patches-from-perseverance-at-jezero-delta/'},
+ 'Wildcat Ridge':{shortGeology:'Sulfate-bearing mudstone',shortActivity:'Abrasion · sol 504',geology:'Fine-grained, sulfate-bearing mudstone.',activity:'Perseverance abraded rock on sol 504 (21 July 2022).',url:'https://science.nasa.gov/resource/two-abrasion-patches-from-perseverance-at-jezero-delta/'}
 };

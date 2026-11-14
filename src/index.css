@@ -436,8 +436,8 @@ html,body,#root,.app-shell {background:var(--surface);color:var(--text-primary)}
 .app-shell .reserve,.app-shell .timeline-reserve{--segment:#80766b}
 /* Short fades and eased entrances; no camera, clock or navigation changes. */
 .app-shell :is(button,a,input,textarea,select,summary){transition:background-color 180ms ease-out,color 180ms ease-out,border-color 180ms ease-out,box-shadow 220ms ease-out}
-.app-shell :is(.named-planner,.earth-workspace,.field-walk,.plan-comparison){animation:mission-reveal 420ms var(--motion-ease) both}
-.app-shell :is(.workspace-menu,.crew-field-panel){animation:panel-reveal 320ms var(--motion-ease) both}
+.app-shell :is(.named-planner,.earth-workspace,.field-walk,.plan-comparison){animation:mission-reveal 180ms ease-out both}
+.app-shell :is(.workspace-menu,.crew-field-panel){animation:panel-reveal 180ms ease-out both}
 .app-shell details[open]>:not(summary){animation:detail-reveal 260ms var(--motion-ease) both}
 .app-shell .mission-timeline>span{transition:width 420ms var(--motion-ease)}
 @keyframes mission-reveal{from{opacity:.5}to{opacity:1}}
@@ -665,7 +665,6 @@ html,body,#root,.app-shell {background:var(--surface);color:var(--text-primary)}
 .suit-overview-readings span{display:block;font-size:10px;letter-spacing:.03em;color:#b9c0c3}
 .suit-overview-readings strong{font:500 19px/1.6 "Rubik Variable",Rubik,sans-serif;color:#f4eee5;display:block}
 .suit-overview-readings small{font-size:9px;color:#aab7bd}
-.overview-open{margin-top:10px;border:1px solid #596167;padding:10px;min-height:44px;font-size:12px;background:transparent;flex-shrink:0}
 .suit-expanded{display:block;padding:22px;overflow:visible}
 .health-detail-layout{display:grid;grid-template-columns:minmax(300px,1.15fr) minmax(260px,1fr);gap:26px;align-items:start;margin-top:24px}
 .health-detail-layout>.body-health-map{max-width:580px;margin:0 auto}
@@ -779,3 +778,88 @@ body {font-variant-numeric:tabular-nums}
 @keyframes sidebar-reveal{from{opacity:.4;transform:translateY(-3px)}to{opacity:1;transform:none}}
 @media(max-width:600px){.chat-dock{right:12px;bottom:12px}.chat-window{height:min(550px,calc(100dvh - 170px));bottom:66px}.chat-launcher{width:50px;height:50px}.field-controls{padding-right:74px}.earth-inbox{padding-bottom:75px}}
 @media(prefers-reduced-motion:reduce){.chat-window,.chat-launcher,.app-shell details>summary,.app-shell details>summary::after{transition:none}.app-shell details[open]>:not(summary){animation:none}}
+
+/* Field HUD: readings remain visible; mission tools open in a separate column. */
+.field-walk.walk-hud{grid-template-columns:minmax(0,1fr);height:100%;min-height:0}
+.walk-hud>.field-map-column{grid-column:1;min-height:0}
+.field-walk.walk-hud.tools-open{grid-template-columns:300px minmax(0,1fr)}
+.walk-hud.tools-open>.field-map-column{grid-column:2}
+.walk-hud>.field-side{width:auto;min-width:0;grid-column:1;grid-row:1}
+.walk-hud>.field-side[hidden]{display:none}
+.field-tools-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.field-tools-heading button{min-height:36px;width:36px;padding:3px;font-size:22px}
+.walk-hud .field-route-line{height:auto;min-height:76px;padding:12px 22px;flex-wrap:wrap;background:#141a1e;border-color:#39434b}
+.walk-hud .field-route-line strong{font-size:15px;font-weight:500}
+.walk-hud .field-route-line small{display:block;margin-top:6px;font-size:11px;color:#c5cccf}
+.walk-status{display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+.walk-status dt{font-size:11px;color:#c5cccf;margin-bottom:5px}
+.walk-status dd{font-size:20px;font-weight:500;color:#fff;white-space:nowrap}
+.walk-status .attention dd{color:#ffcf96}
+.walk-progress{height:3px;background:#303a40;flex-shrink:0;overflow:hidden}
+.walk-progress>span{display:block;height:100%;background:#dca778;transition:width 180ms linear}
+.walk-readings{position:absolute;top:22px;left:22px;width:282px;z-index:6;color:#fff;pointer-events:none;display:flex;flex-direction:column;gap:18px;text-shadow:0 1px 4px #0009}
+.walk-readings-group{padding:12px 15px;background:#0f161bee;border-left:2px solid #87989d;border-radius:0 3px 3px 0}
+.readings-caption{display:block;font-size:10px;letter-spacing:.035em;color:#d0d8db;margin-bottom:8px}
+.walk-readings dl{margin:0;display:flex;flex-direction:column;gap:9px}
+.walk-readings dl>div{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.walk-readings dt{font-size:11px;color:#d0d8db;flex-shrink:0}
+.walk-readings dd{font-size:12px;line-height:1.4;font-weight:450;text-align:right}
+.walk-readings dd small{display:block;font-size:10px;color:#d0d8db;margin-top:3px}
+.walk-readings .readings-alert dd{color:#ffd4a1}
+.walk-hud .field-map.map-active{display:grid;grid-template-columns:300px minmax(0,1fr);gap:0;background:#0f161b}
+.walk-hud .map-active .walk-readings{position:static;width:auto;padding:16px 12px;overflow:auto;pointer-events:auto}
+.walk-hud .map-active>.regional-map{min-width:0;min-height:0}
+.walk-hud .walk-scene-source{background:#0f161bee;color:#fff;font-size:10px;left:auto;right:16px;bottom:16px}
+.walk-hud .walk-scene-error{inset:auto 20px 24px auto;max-width:360px;font-size:13px;border:1px solid #57646b;z-index:7}
+.walk-hud .field-controls{padding:12px 88px 12px 20px;gap:8px;justify-content:flex-start;background:#141a1e;border-color:#39434b}
+.walk-hud .field-controls button{font-weight:500;font-size:13px;min-height:44px}
+.walk-hud .field-warning{background:#302719;color:#fff0dc;font-size:12px}
+/* Immediate navigation; underline is the only moving element. */
+.mission-nav button{position:relative;border-bottom:0;font-weight:500!important;transition:color 150ms ease,background-color 150ms ease!important}
+.mission-nav button::after{content:'';position:absolute;left:12px;right:12px;bottom:0;height:2px;background:#e2ae80;transform:scaleX(0);transition:transform 160ms ease-out}
+.mission-nav button[aria-current=page]::after{transform:scaleX(1)}
+.app-shell .mission-nav button:hover{background:#ffffff09;color:#fff}
+.app-shell .mission-nav button:active{transform:none}
+.workspace-menu{animation:menu-enter 150ms ease-out}
+@keyframes menu-enter{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+/* Source list: neutral high-contrast text, no coloured status cards. */
+.coverage-view{height:100%;overflow:auto;background:#10161b;color:#fff;padding:28px 32px}
+.coverage-content{max-width:1050px;margin:0 auto}
+.coverage-content>header{display:flex;align-items:center;gap:16px;margin:0 0 24px}
+.coverage-content>header button{padding:12px;border:1px solid #53606b;border-radius:5px}
+.coverage-content h1{font-size:26px;font-weight:500}
+.coverage-list{list-style:none;padding:0;margin:0}
+.coverage-list>li{display:grid;grid-template-columns:180px minmax(0,1fr) 70px;gap:24px;padding:20px 0;border-top:1px solid #39444d}
+.coverage-list h2{font-size:14px;font-weight:500;margin:0}
+.coverage-list strong{display:block;font-size:13px;font-weight:450;line-height:1.5}
+.coverage-list p{font-size:12px;line-height:1.6;margin-top:5px;color:#e3e7ea}
+.coverage-list p.coverage-limit{color:#c4cdd3}
+.coverage-list a{display:flex;gap:6px;align-items:center;align-self:start;font-size:12px;color:#fff;text-decoration:underline;text-underline-offset:4px;min-height:44px;margin-top:-10px}
+.coverage-content>footer{border-top:1px solid #39444d;padding:20px 0;font-size:11px;color:#c4cdd3}
+@media(max-width:1100px){.walk-status{gap:18px}.walk-status dd{font-size:18px}.walk-hud .field-route-line{gap:12px}.field-walk.walk-hud.tools-open{grid-template-columns:280px minmax(0,1fr)}.walk-readings{left:14px;top:14px;width:270px;gap:10px}.walk-hud.tools-open .field-map.map-active{grid-template-columns:1fr}.walk-hud.tools-open .map-active .walk-readings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px}.walk-hud.tools-open .map-active .walk-readings-group{padding:8px}.walk-hud.tools-open .map-active .walk-readings dl>div{display:block}.walk-hud.tools-open .map-active .walk-readings dd{text-align:left}}
+@media(max-width:760px){.walk-hud .field-route-line{padding:10px 14px}.walk-status{gap:16px}.walk-status dd{font-size:17px}.walk-readings{top:12px;left:12px;width:252px;gap:8px}.walk-readings-group{padding:9px 12px}.walk-readings dl{gap:6px}.walk-readings dt{font-size:10px}.walk-readings dd{font-size:11px}.field-walk.walk-hud.tools-open{grid-template-columns:260px minmax(300px,1fr);overflow-x:auto}.walk-hud .field-controls{gap:6px;padding-left:12px}.walk-hud .field-controls button{font-size:12px;padding:8px 10px}.walk-hud .field-map.map-active{grid-template-columns:1fr;grid-template-rows:auto minmax(240px,1fr);overflow:auto}.walk-hud .map-active .walk-readings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:8px}.walk-hud .map-active .walk-readings-group{padding:8px}.walk-hud .map-active .walk-readings dl>div{display:block}.walk-hud .map-active .walk-readings dd{text-align:left}.coverage-view{padding:20px 18px}.coverage-list>li{grid-template-columns:minmax(0,1fr) 64px;gap:10px;padding:18px 0}.coverage-list h2{grid-column:1}.coverage-list>li>div{grid-column:1;grid-row:2}.coverage-list a{grid-column:2;grid-row:1/3;align-self:start}.coverage-content h1{font-size:23px}}
+@media(max-height:700px) and (min-width:761px){.walk-readings{gap:8px;top:12px}.walk-readings-group{padding:8px 12px}.walk-readings dl{gap:5px}.readings-caption{margin-bottom:5px}.walk-hud .field-route-line{min-height:64px}}
+@media(prefers-reduced-motion:reduce){.mission-nav button::after,.walk-progress>span{transition:none}.workspace-menu{animation:none}}
+/* A map gets a horizontal instrument strip, never a second sidebar. */
+.walk-hud .field-map{container-type:inline-size}
+.walk-hud .field-map.map-active{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(240px,1fr)}
+.walk-hud .map-active .walk-readings,.walk-hud.tools-open .map-active .walk-readings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:12px 16px;gap:16px;max-height:none;overflow:visible}
+.walk-hud .map-active .walk-readings-group,.walk-hud.tools-open .map-active .walk-readings-group{padding:6px 12px;border-left:1px solid #52616a;background:none}
+.walk-hud .map-active .walk-readings dl>div,.walk-hud.tools-open .map-active .walk-readings dl>div{display:flex}
+.walk-hud .map-active .walk-readings dd,.walk-hud.tools-open .map-active .walk-readings dd{text-align:right}
+.walk-readings dt{font-size:12px}.walk-readings dd{font-size:13px}.readings-caption{font-size:11px}
+@container(max-width:650px){.walk-hud .map-active .walk-readings,.walk-hud.tools-open .map-active .walk-readings{grid-template-columns:1fr 1fr;gap:10px;padding:10px}.walk-hud .map-active .walk-readings-group:last-child{grid-column:1/-1}.walk-hud .map-active .walk-readings-group:last-child dl{flex-direction:row;gap:24px}.walk-hud .map-active .walk-readings dl>div{gap:8px}.walk-hud .map-active .walk-readings dd{font-size:11px}.walk-hud .map-active .walk-readings dt{font-size:10px}}
+@media(max-width:760px){.field-walk.walk-hud.tools-open{display:flex;flex-direction:column;overflow:auto}.walk-hud.tools-open>.field-side{max-height:38dvh;flex:0 0 auto;border-bottom:1px solid #39434b}.walk-hud.tools-open>.field-map-column{flex:1 0 540px;min-height:540px}.walk-readings dt{font-size:11px}.walk-readings dd{font-size:12px}}
+
+/* Suit overview reserves the diagram's full height; the panel scrolls on shorter screens. */
+.suit-overview>header{display:block;padding:0;min-height:0}
+.suit-overview-title{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:56px;padding:16px 0;text-align:left;font-size:16px;font-weight:500;color:#f8f0e7;background:transparent;border:0;border-bottom:1px solid #455056;border-radius:0;transition:color 160ms,background 160ms}
+.suit-overview-title:hover{color:#fff!important;background:#1a242b!important}
+.suit-overview-title svg{flex-shrink:0;color:#f3c391}
+.suit-crew-summary{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;padding:16px 0 8px}
+.suit-crew-summary .suit-report-age{padding:0;font-size:11px}
+.suit-overview-stage{flex:0 0 auto;display:block;min-height:0;padding:16px 0}
+.suit-overview-stage>.body-health-map{width:100%;max-width:440px;min-height:320px;margin:0 auto;aspect-ratio:1}
+.suit-overview-stage .body-map-caption{bottom:0}
+.suit-overview .tank-strip{margin-top:auto}
+@media(max-width:600px){.suit-overview-stage>.body-health-map{min-height:340px}}

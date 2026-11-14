@@ -1,3 +1,4 @@
+import {ArrowUpRight} from 'lucide-react';
 import {isGenerated} from '@/lib/healthDemo';
 import BodyHealthMap from './BodyHealthMap';
 import {lazy,Suspense,useState} from 'react';
@@ -14,11 +15,11 @@ export default function SuitMonitor({status,history,now,paused=false,onReplay,ac
  const range=Math.max(high-low,1),start=series[0]?.at??cutoff,span=Math.max(1,cutoff-start);
  const path=series.map((p,i)=>`${i?'L':'M'}${(12+(p.at-start)/span*276).toFixed(2)},${(62-(p.value-low)/range*48).toFixed(2)}`).join(' ');
  const alarm=metric==='tank'?member&&member.oxygenMinutes<=member.oxygenReserveMinutes:reading&&(dataState(reading,cutoff,now).startsWith('Above')||dataState(reading,cutoff,now).startsWith('Below'));
- if(compact)return <section className="suit-monitor suit-overview" aria-label="Astronaut suit monitor"><header><div><span className="eyebrow">CREW / SUIT</span><h2>{member?.name??'Awaiting crew'}</h2></div><button type="button" className="panel-expand" onClick={onExpand} aria-label="Expand suit monitoring">Suit monitoring</button></header><div className="suit-report-age">{report?`${Math.max(0,Math.floor(now-cutoff))}s old · ${member?.tankId??'Tank'}`:'Waiting for delivered telemetry'}</div>
+ if(compact)return <section className="suit-monitor suit-overview" aria-label="Astronaut suit monitor"><header><button type="button" className="suit-overview-title" onClick={onExpand} aria-label="Expand suit monitoring"><span>Suit monitoring</span><ArrowUpRight size={18} aria-hidden="true"/></button><div className="suit-crew-summary"><h2>{member?.name??'Awaiting crew'}</h2><div className="suit-report-age">{report?`${Math.max(0,Math.floor(now-cutoff))}s old · ${member?.tankId??'Tank'}`:'Waiting for delivered telemetry'}</div></div></header>
  <div className="telemetry-provenance">{report?.demoVitals?<span className="demo-reading-label">DEMO · GENERATED</span>:<span>{report?.healthReplay?'REFERENCE REPLAY':'RECEIVED READINGS'}</span>}{roster.length>1&&<select aria-label="Suit astronaut" value={id} onChange={e=>setSelected(e.target.value)}>{roster.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select>}</div>
  <div className="suit-overview-stage"><BodyHealthMap member={member} selected={metric} onSelect={key=>{setMetric(key);onExpand?.();}}/></div>
  <button className="tank-strip" onClick={()=>{setMetric('tank');onExpand?.();}}><span>Tank endurance<small>Model · reserve {member?.oxygenReserveMinutes??'—'} min</small></span><strong>{member?`${Math.max(0,member.oxygenMinutes).toFixed(1)} min`:'—'}</strong></button>
- <button className="overview-open" onClick={onExpand}>Open health & suit details →</button></section>;
+ </section>;
  return <section className="suit-monitor suit-expanded" aria-label="Astronaut suit monitor"><header><div><span className="eyebrow">CREW / SUIT</span><h2>{member?.name??'Awaiting crew'}</h2></div>{roster.length>1&&<label><span className="sr-only">Suit astronaut</span><select aria-label="Suit astronaut" value={id} onChange={e=>setSelected(e.target.value)}>{roster.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label>}</header>
  <div className="suit-report-age">{member?.tankId&&<span>{member.tankId} · </span>}{report?`${replayingPast?'Past report':'Received report'} · ${Math.max(0,Math.floor(now-cutoff))}s old`:'Waiting for delivered telemetry'}</div>
  {report?.demoVitals&&<div className="telemetry-provenance"><span className="demo-reading-label">DEMO · GENERATED</span><span>Follows mission activity</span></div>}

@@ -10,6 +10,7 @@ export default function SurfaceReadout({position,regional=false,slopeLimit,repor
  return <details className="surface-readout sidebar-section" aria-label="Surface conditions"><summary>Surface conditions</summary><header><small>{!position?'Waiting for position':reported?'At reported position':'At crew position'}</small></header>
   <dl className="instrument-rows">
    <div><dt>Temperature</dt><dd>{weatherRange()}<small>Archived air range</small></dd></div>
+   <div><dt>Pressure</dt><dd>{typeof JEZERO_WEATHER.pressure==='number'?`${JEZERO_WEATHER.pressure} Pa`:'No reading'}<small>Archived · sol {JEZERO_WEATHER.sol}</small></dd></div>
    <div><dt>Elevation</dt><dd>{terrain?.elevation==null?'—':`${terrain.elevation.toFixed(0)} m`}</dd></div>
    <div><dt>Slope</dt><dd>{slope==null?'—':`${slope.toFixed(1)}°`}</dd></div>
    <div className={over?'attention':''}><dt>Terrain alert</dt><dd>{over?'Above set slope limit':slope==null?'No terrain coverage':'Small hazards unresolved'}</dd></div>

@@ -4,3 +4,8 @@ data
 .git
 .env
 *.zip
+
+.env.*
+!.env.example
+*.sqlite*
+*.db*

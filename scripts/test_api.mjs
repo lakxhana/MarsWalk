@@ -5,14 +5,17 @@ import { join } from 'node:path';
 import assert from 'node:assert/strict';
 const folder=mkdtempSync(join(tmpdir(),'marswalk-http-'));
 const port=31020+Math.floor(Math.random()*1000);
-const child=spawn(process.execPath,['--experimental-sqlite','server/index.mjs'],{env:{...process.env,PORT:String(port),PUBLIC_ORIGIN:"https://marswalk.example",MARSWALK_DB:join(folder,'test.sqlite')},stdio:['ignore','pipe','pipe']});
+const launch=()=>spawn(process.execPath,['--experimental-sqlite','server/index.mjs'],{env:{...process.env,PORT:String(port),PUBLIC_ORIGIN:"https://marswalk.example",MARSWALK_DB:join(folder,'test.sqlite')},stdio:['ignore','pipe','pipe']});
+let child=launch();
+const ready=()=>new Promise((resolve,reject)=>{
+ const timeout=setTimeout(()=>reject(new Error('Server startup timeout')),10000);
+ child.stdout.on('data',data=>{if(String(data).includes('SQLite connected')){clearTimeout(timeout);resolve();}});
+ child.once('error',e=>{clearTimeout(timeout);reject(e);});
+ child.once('exit',code=>{clearTimeout(timeout);reject(new Error(`Server exited: ${code}`));});
+});
+const stop=async()=>{const stopped=new Promise(resolve=>child.once('exit',resolve));child.kill('SIGTERM');await stopped;};
 try{
-  await new Promise((resolve,reject)=>{
-    const timeout=setTimeout(()=>reject(new Error('Server startup timeout')),10000);
-    child.stdout.on('data',data=>{if(String(data).includes('SQLite connected')){clearTimeout(timeout);resolve();}});
-    child.once('error',e=>{clearTimeout(timeout);reject(e);});
-    child.once('exit',code=>{clearTimeout(timeout);reject(new Error(`Server exited: ${code}`));});
-  });
+  await ready();
   const base=`http://127.0.0.1:${port}`;
   const call=(path,method='GET',value)=>fetch(base+path,{method,headers:{'Content-Type':'application/json'},body:value===undefined?undefined:JSON.stringify(value)});
   assert.equal((await (await call('/api/health')).json()).database,'SQLite');
@@ -34,7 +37,22 @@ try{
   await poll('earth-http',{simTime:101,surfacePose:{x:13,z:25}},['http-cmd']);
   assert.equal((await poll('mars-http')).mission.surfacePose.x,13);
   assert.equal((await poll('earth-http')).commands.length,0);
-  console.log('PASS 16 running-server HTTP checks: SQLite health, messages, mission, validation, origin rejection, frontend and deletion');
+  const databaseId=(await (await call('/api/health')).json()).databaseId;
+  await call('/api/messages','PUT',msg);
+  await call('/api/tasks','PUT',{id:'persist-task',title:'Sample photo',status:'completed'});
+  await poll('earth-http',{simTime:102,surfacePose:{x:14,z:25},missionStartedAtSimTime:100});
+  await stop();child=launch();await ready();
+  assert.equal((await (await call('/api/health')).json()).databaseId,databaseId,'same database survives restart');
+  assert.equal((await (await call('/api/tasks')).json())[0].status,'completed');
+  assert.equal((await (await call('/api/messages')).json())[0].questionText,msg.questionText);
+  const [earth,mars]=await Promise.all([poll('earth-new'),poll('mars-new')]);
+  assert.equal(Number(earth.controller)+Number(mars.controller),1,'concurrent tabs get only one simulation controller');
+  assert.equal(earth.mission.surfacePose.x,14);assert.equal(mars.mission.surfacePose.x,14);
+  assert.equal(earth.mission.restorePending,true,'restarted active mission requires explicit resume');
+  const follower=earth.controller?'mars-new':'earth-new';
+  await poll(follower,{simTime:9999,surfacePose:{x:999,z:999}});
+  assert.equal((await (await call('/api/mission')).json()).simTime,102,'viewer cannot overwrite the mission');
+  console.log('PASS HTTP API: messages, tasks, origin checks, two clients, restart persistence, one controller and paused recovery');
 } finally {
   child.kill('SIGTERM');
   if(child.exitCode===null)await new Promise(resolve=>{child.once('exit',resolve);setTimeout(()=>{child.kill('SIGKILL');resolve();},1500).unref();});

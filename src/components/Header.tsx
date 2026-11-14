@@ -30,13 +30,13 @@ export default function Header({ currentView, onNavigate, role, onChangeRole, si
     ? [{id: 'globe', label: 'Explore Mars'}, {id: 'plan', label: missionReady?'Missions · ready':'Missions'}, {id: 'missions', label: 'Mission log'}]
     : [{id:'globe',label:'Explore Mars'},{id:'plan',label:'Plan mission'},...(missionActive?[{id:'science' as AppView,label:'Mission control'}]:[]),{id:'missions',label:'Mission log'}];
   return <header className="mission-header">
-    <div className="mission-brand"><span className="brand-orbit" aria-hidden="true"/><strong>MARSWALK</strong><span className="prototype-label">Research simulation · 1.9.7</span></div>
+    <div className="mission-brand"><span className="brand-orbit" aria-hidden="true"/><strong>MARSWALK</strong><span className="prototype-label">Research simulation · 1.9.9</span></div>
     <nav aria-label="Main navigation" className="mission-nav">
-      {primary.map(item => <button key={item.id} className={item.id==='plan'&&role==='explorer'&&missionReady?'mission-ready':''} aria-current={currentView === item.id ? 'page' : undefined} onClick={() => onNavigate(item.id)}>{item.label}</button>)}
+      {primary.map(item => <button key={item.id} className={item.id==='plan'&&role==='explorer'&&missionReady?'mission-ready':''} aria-current={currentView === item.id ? 'page' : undefined} onClick={() => {setMoreOpen(false);onNavigate(item.id);}}>{item.label}</button>)}
     </nav>
     <div className="mission-tools">{oneWayDelayMinutes===0&&simulationSpeedMultiplier>1&&<span className="demo-speed-badge">DEMO {simulationSpeedMultiplier}×</span>}{missionActive&&currentView!=='walk'&&role==='explorer'&&<button className="quiet-button" onClick={()=>onNavigate('walk')}>Return to active walk</button>}
       <label className="sr-only" htmlFor="workspace">Workspace</label>
-      <select id="workspace" value={role} onChange={e => onChangeRole(e.target.value as UserRole)}><option value="explorer">Mars crew</option><option value="science_team">Earth team</option></select>
+      <select id="workspace" value={role} onChange={e => {setMoreOpen(false);onChangeRole(e.target.value as UserRole);}}><option value="explorer">Mars crew</option><option value="science_team">Earth team</option></select>
       <div className="relative"><button aria-label="More options" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} className="quiet-button">•••</button>
       {moreOpen && <div className="workspace-menu">
         <button onClick={() => {onNavigate('globe'); setMoreOpen(false);}}>Explore Mars globe</button>

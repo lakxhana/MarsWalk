@@ -695,9 +695,6 @@ export default function MarsGlobe({
               </button>
             </div>
 
-            <p className="mt-2.5 text-xs leading-relaxed text-[#d9ccba]">
-              {activeRegion.description}
-            </p>
 
             {/* Action Button: Single action Explore Jezero */}
             <div className="mt-4">
@@ -712,7 +709,7 @@ export default function MarsGlobe({
                 </button>
               ) : (
                 <div className="rounded-lg bg-[#2b2520] p-2.5 text-center text-xs text-[#b3a595]">
-                  No regional imagery available for this feature.
+                  Regional imagery unavailable.
                 </div>
               )}
             </div>
@@ -720,8 +717,8 @@ export default function MarsGlobe({
             {/* Verified coverage disclosure */}
             <div className="mt-3 text-[11px] text-[#b3a595] text-center border-t border-[#3c342e] pt-2">
               {activeRegion.id === 'jezero'
-                ? 'Verified HiRISE observation ESP_048908_1985 (1.0 m/px)'
-                : 'No regional dataset loaded for this feature'}
+                ? 'HiRISE · local coverage'
+                : 'Globe overview only'}
             </div>
           </div>
         )}

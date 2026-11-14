@@ -29,4 +29,4 @@ For local Postgres, put the settings in `.env`; npm start loads them. Prefer a f
 - https://node-postgres.com/features/ssl
 - https://node-postgres.com/features/transactions
 
-Postgres SQL/transactions are tested with PGlite; SQLite and shared clients have integration tests. This package has not been connected to your Supabase account or deployed publicly. Hosting/account setup is still required. Keep database backups through your provider; never commit a personal database.
+Verified locally: two browser sessions share movement, tasks, notes and two-way messages; ending a walk archives it and closes Mission control. HTTP tests verify disk persistence after restart and reject follower overwrites. Postgres SQL/transactions use PGlite tests, not a hosted Supabase connection. This package has not been connected to your Supabase account or deployed publicly. Hosting/account setup is still required. Keep database backups through your provider; never commit a personal database.

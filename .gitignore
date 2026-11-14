@@ -25,6 +25,15 @@ dist-ssr
 # Local mission database
 data/*.sqlite*
 
+# Private mission data and deployment credentials
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.db
+*.db-*
+
 # Local files
 /data/
 /node_modules/

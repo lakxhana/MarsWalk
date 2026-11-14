@@ -31,7 +31,7 @@ const server=createServer(async(req,res)=>{
         if(!req.headers['content-type']?.includes('application/json'))return json(res,415,{error:'JSON body required'});
       }
       const segments=url.pathname.split('/').filter(Boolean);const resource=segments[1];
-      if(req.method==='GET' && resource==='health')return json(res,200,{ok:true,database:databaseType,databaseId:db.databaseId,version:'1.9.6'});
+      if(req.method==='GET' && resource==='health')return json(res,200,{ok:true,database:databaseType,databaseId:db.databaseId,version:'1.9.9'});
       if(resource==='session'&&req.method==='POST')return json(res,200,await session.poll(await body(req)));
       if(resource==='commands'&&req.method==='POST')return json(res,200,await session.enqueue(await body(req)));
       if(resource==='mission') {
@@ -56,5 +56,5 @@ const server=createServer(async(req,res)=>{
   }catch(e){console.error(e.message);json(res,400,{error:e.message || 'Request failed'});}
 });
 server.on('error',e=>{console.error(e.code==='EADDRINUSE'?`Port ${port} is busy. Stop the older MARSWalk server with Ctrl+C first.`:e.message);db.close();process.exitCode=1;});
-server.listen(port,process.env.HOST||'127.0.0.1',()=>console.log(`MARSWalk 1.9.6 · ${databaseType} connected\nOpen http://127.0.0.1:${port}\nDatabase: ${databaseType==='SQLite'?databaseFile:'shared Postgres'}`));
+server.listen(port,process.env.HOST||'127.0.0.1',()=>console.log(`MARSWalk 1.9.9 · ${databaseType} connected\nOpen http://127.0.0.1:${port}\nDatabase: ${databaseType==='SQLite'?databaseFile:'shared Postgres'}`));
 for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>server.close(async()=>{await db.close();process.exit(0);}));

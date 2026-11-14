@@ -37,4 +37,4 @@ Advice arrival = sending time + one-way delay. Advice validity uses the last rec
 ### Who plans?
 Earth prepares the route, tasks and budgets. Mars reviews and starts the walk, or requests changes. Drafts do not overwrite active missions. Earth sees only delivered position reports; its arrow points along the reported heading. Live demo has no signal delay.
 
-Interface: dropdown sections keep details out of the way. Chat is the bottom-right icon; a badge appears only for arrived messages. Mission control is available during an active walk only. Ended missions are in Mission log.
+Interface: the walk shows surface readings directly, with time, oxygen and progress above. Tasks & crew opens detailed controls. Earth retains its compact sections. Chat is the bottom-right icon; a badge appears only for arrived messages. Mission control is available during an active walk only. Ended missions are in Mission log.

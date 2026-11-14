@@ -98,3 +98,10 @@ Displayed estimates are rounded; JSON validation fixtures retain unrounded resul
 
 ## Shared database
 `server/index.mjs` selects SQLite by default or Postgres when DATABASE_URL is set. `server/postgres.mjs` handles transactions and a database-backed simulator lease. `server/schema.sql` creates an empty private schema. `src/main.tsx` loads this database without importing old browser records. Operational identities are entered by the user; scientific source files and editable planning assumptions are retained.
+
+## Walking readouts (1.9.8)
+- `walkReadings.ts` samples the existing elevation grid at the crew's current local coordinates. Slope is the arctangent of the central-difference gradient; unavailable neighbours yield no reading.
+- The closest bundled named-site coordinate supplies **site context** for geology and rover history. Distance is shown; this does not classify the surface at the astronaut's feet. `SITE_SCIENCE` retains the NASA source links.
+- Observations count saved crew records with finite positions and timestamps no later than the current simulation clock. Nearest-record distance uses the same local metre frame.
+- Temperature is the last valid archived daily air range: MEDA sol 1133, 2024-04-27, −79.3 to −24.7 °C. Pressure is **778.9 Pa from that same record**, unchanged. Neither is a live reading, a spatial weather map or an equation-based forecast.
+- `WalkReadings.tsx` renders these values directly on the walk. `SourcesAndCoverageView.tsx` lists sources and limits. Full source product metadata remains in `dataManifest.ts` and `research-data/data-catalog.json`.
