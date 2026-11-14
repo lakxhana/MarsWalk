@@ -15,7 +15,7 @@ export function createVercelHandler({env = process.env, connect = openPostgres, 
   }});
   return async (req, res) => {
     if (!env.DATABASE_URL || !/^postgres(ql)?:\/\//.test(env.DATABASE_URL) || env.DATABASE_URL.includes('[YOUR-PASSWORD]')) return json(res, 503, {error:'Set DATABASE_URL to the full Supabase connection string, including your database password, then redeploy.'});
-    if (!env.BASIC_AUTH_PASSWORD) return json(res, 503, {error:'Set BASIC_AUTH_PASSWORD in Vercel to protect your mission data, then redeploy.'});
+    if (env.APP_ACCESS === 'private' && !env.BASIC_AUTH_PASSWORD) return json(res, 503, {error:'Private access requires BASIC_AUTH_PASSWORD. Set it in Vercel or use APP_ACCESS=public, then redeploy.'});
     try {
       if (!env.PUBLIC_ORIGIN || new URL(env.PUBLIC_ORIGIN).protocol !== 'https:') throw new Error();
     } catch { return json(res, 503, {error:'Set PUBLIC_ORIGIN to your HTTPS website address, then redeploy.'}); }

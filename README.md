@@ -1,4 +1,4 @@
-# MARSWalk 1.9.10
+# MARSWalk 1.9.11
 
 A Mars exploration prototype with a shared Earth/Mars mission.
 
@@ -35,10 +35,10 @@ O₂ endurance = configured minutes − elapsed minutes, including stops. Slope 
 Exact sources, units, equations and code locations: [DATA-AND-CALCULATIONS.md](DATA-AND-CALCULATIONS.md). Bundled data and licenses: `research-data/`. Health/model details: [HEALTH-AND-MODEL.md](HEALTH-AND-MODEL.md).
 
 ## Shared database and deployment
-Open the **same server URL** on both devices and select Earth/Mars. Progress, tasks, messages and reports share one database; updates poll each second.
+Open the **same server URL** on both devices and select Earth/Mars. Everyone can use the website and view shared mission history, notes and progress without signing in. One expedition runs at a time; updates poll each second. Supabase credentials stay on the server.
 
 - Local: SQLite. Hosted SQLite needs a persistent disk and one server instance.
-- Online: **Vercel + Supabase Postgres**. Deploy the whole project and set `DATABASE_URL`, `PUBLIC_ORIGIN` and the team login. Follow [DEPLOY.md](DEPLOY.md). A persistent Node host is also supported.
+- Online: **Vercel + Supabase Postgres**. Deploy the whole project and set `DATABASE_URL` and `PUBLIC_ORIGIN`. The website is public: no judge login is needed. Follow [DEPLOY.md](DEPLOY.md). A persistent Node host is also supported.
 - Keep a controller browser open. Another client can take over after disconnect; the walk resumes paused for review. Roles are views in one team workspace.
 - Live mode: 1× / no delay. Mars delay: 1× / five-minute delay. Demo: 5× / no delay. Earth shows delivered reports.
 

@@ -11,7 +11,7 @@ assert.equal(typeof deployedHandler, 'function');
 const largeRecord={note:'🪐'.repeat(1_100_000)},chunks=[];
 json({writeHead:()=>{},write:chunk=>chunks.push(chunk),end:()=>{}},200,largeRecord);
 assert.deepEqual(JSON.parse(Buffer.concat(chunks).toString()),largeRecord,'streamed responses preserve Unicode across chunks');
-const env = {VERCEL:'1', DATABASE_URL:'postgresql://test:test@localhost/test', PUBLIC_ORIGIN:'https://marswalk.example', BASIC_AUTH_USER:'crew', BASIC_AUTH_PASSWORD:'test-team-password'};
+const env = {VERCEL:'1', APP_ACCESS:'private', DATABASE_URL:'postgresql://test:test@localhost/test', PUBLIC_ORIGIN:'https://marswalk.example', BASIC_AUTH_USER:'crew', BASIC_AUTH_PASSWORD:'test-team-password'};
 const auth = 'Basic ' + Buffer.from('crew:test-team-password').toString('base64');
 function request(handler, path, method='GET', body, headers={authorization:auth}) {
   const req = {url:`/api/${path}`, method, body, headers:{'content-type':'application/json', ...headers}};
@@ -70,6 +70,30 @@ try {
   const takeover=await request(restarted,'session','POST',{clientId:'new-controller'});
   assert.equal(takeover.body.mission.simTime,101);assert.equal(takeover.body.mission.restorePending,true);
   assert.equal((await request(restarted,'tasks')).body[0].status,'completed');
+  // Public visitors use the same existing database, including mission history.
+  // Old BASIC_AUTH_* settings alone must not reintroduce a login wall.
+  const publicEnv={...env};delete publicEnv.APP_ACCESS;
+  const publicEarth=createVercelHandler({env:publicEnv,connect});
+  const publicMars=createVercelHandler({env:{...publicEnv,APP_ACCESS:'public',BASIC_AUTH_PASSWORD:''},connect});
+  const saved=(await request(publicEarth,'mission','GET',undefined,{}));
+  assert.equal(saved.status,200);assert.equal(saved.body.simTime,101);
+  assert.equal(saved.headers['WWW-Authenticate'],undefined);
+  assert.equal((await request(publicMars,'tasks','GET',undefined,{})).body[0].status,'completed');
+  assert.equal((await request(publicMars,'observations','GET',undefined,{})).body[0].note,'Rock layers');
+  assert.equal((await request(publicMars,'messages','GET',undefined,{})).body.length,2);
+  const shared={...saved.body,crewOperations:{previousWalks:[{id:'past-walk',destination:'Wildcat Ridge',finding:'Rock layers'}]}};
+  await request(restarted,'session','POST',{clientId:'new-controller',state:shared});
+  assert.equal((await request(publicEarth,'mission','GET',undefined,{})).body.crewOperations.previousWalks[0].id,'past-walk');
+  const publicTask={id:'judge-task',title:'Review photo',status:'completed'};
+  assert.equal((await request(publicEarth,'tasks','PUT',publicTask,{origin:env.PUBLIC_ORIGIN})).status,200);
+  assert.equal((await request(publicMars,'tasks','GET',undefined,{})).body.find(t=>t.id===publicTask.id).status,'completed');
+  await request(publicEarth,'tasks','DELETE',{ids:[publicTask.id]},{});
+  assert.equal((await request(publicEarth,'commands','POST',{id:'judge-command',kind:'mode',payload:{speed:1,delay:0}},{origin:env.PUBLIC_ORIGIN})).status,200);
+  assert.equal((await request(publicMars,'session','POST',{clientId:'public-judge'},{})).body.controller,false,'public visitor cannot create a second clock');
+  assert.equal((await request(publicEarth,'commands','POST',{id:'bad-origin',kind:'mode',payload:{}},{origin:'https://attacker.example'})).status,403);
+  assert.equal((await request(publicMars,'health','GET',undefined,{})).body.databaseId,health.body.databaseId,'same database, no isolated demo schema');
+  const clientVisible=JSON.stringify(saved);
+  assert.ok(!clientVisible.includes(env.DATABASE_URL));assert.ok(!clientVisible.includes(env.BASIC_AUTH_PASSWORD));
   assert.equal((await request(earth,'tasks','PUT',null)).status,400);
   assert.equal((await request(earth,'tasks','PUT','{broken')).status,400);
   assert.equal((await request(earth,'observations','PUT',{...observation,note:'x'.repeat(4_000_000)})).status,413);
@@ -86,5 +110,5 @@ try {
   const rejected=await request(retry,'health');assert.equal(rejected.status,503);assert.match(rejected.body.error,/password rejected/);assert.doesNotMatch(rejected.body.error,/private-secret/);
   assert.equal((await request(retry,'health')).status,200,'failed cold start can retry');
   const config=await postgresConfig(env.DATABASE_URL,undefined,{serverless:true});assert.equal(config.max,1);assert.equal(config.ssl.rejectUnauthorized,true);
-  console.log('PASS Vercel API: both body formats, protected access, empty Postgres, two independent instances, shared progress/tasks/messages/notes, restart persistence, one controller, upload cap, retry and TLS');
+  console.log('PASS Vercel API: public history/notes, login-free shared access, optional private access, both body formats, empty Postgres, two independent instances, shared progress/tasks/messages/notes, restart persistence, one controller, upload cap, retry and TLS');
 } finally {await engine.close();}
