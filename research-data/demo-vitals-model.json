@@ -1,0 +1,15 @@
+{
+  "id": "marswalk-demo-v1",
+  "purpose": "Illustrative generated telemetry for interface demonstrations only. These are editable scenario assumptions, not NASA measurements, a validated physiological model, or clinical limits.",
+  "sampleIntervalSeconds": 1,
+  "responseSeconds": 45,
+  "metrics": {
+    "heartRate": {"rest": 72, "activityChange": 35, "variation": 2.5, "periodSeconds": 23, "decimals": 0},
+    "respiratoryRate": {"rest": 14, "activityChange": 8, "variation": 0.7, "periodSeconds": 31, "decimals": 0},
+    "bloodOxygen": {"rest": 98, "activityChange": -0.6, "variation": 0.25, "periodSeconds": 47, "decimals": 1},
+    "bodyTemperature": {"rest": 36.7, "activityChange": 0.35, "variation": 0.04, "periodSeconds": 119, "decimals": 1},
+    "suitPressure": {"rest": 29.6, "activityChange": 0, "variation": 0.03, "periodSeconds": 41, "decimals": 2},
+    "oxygenPartialPressure": {"rest": 29.1, "activityChange": -0.05, "variation": 0.02, "periodSeconds": 37, "decimals": 2},
+    "co2PartialPressure": {"rest": 0.3, "activityChange": 0.12, "variation": 0.01, "periodSeconds": 29, "decimals": 2}
+  }
+}

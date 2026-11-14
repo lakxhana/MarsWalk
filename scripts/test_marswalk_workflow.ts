@@ -15,7 +15,6 @@ import {
   type ObservationRecord,
   type CommMessage,
   type FieldTask,
-  DEFAULT_TASKS,
 } from '../src/lib/storage';
 import {
   tickMessageStatuses,
@@ -34,6 +33,58 @@ function assert(condition: boolean, testName: string, detail?: string) {
     failCount++;
   }
 }
+
+// Test-only historical notebook fixture; never seeded into the app.
+const DEFAULT_TASKS: FieldTask[] = [
+  {
+    id: 'task-outcrop-sampling',
+    title: 'Outcrop workspace & abrasion screening',
+    description: 'Inspect rock surface clasts, clear dust with gas puff, and evaluate abrasion patch placement.',
+    status: 'in_progress',
+    estimatedMinutes: 20,
+    isIndependent: false,
+    requiresEarthAdvice: true,
+    category: 'sampling',
+    siteId: 'skinner-ridge',
+  },
+  {
+    id: 'task-dust-opacity',
+    title: 'Atmospheric dust opacity check (Tau survey)',
+    description: 'Point Mastcam-Z toward solar disk through neutral density filters to measure atmospheric optical depth.',
+    status: 'pending',
+    estimatedMinutes: 8,
+    isIndependent: true,
+    category: 'atmospheric',
+  },
+  {
+    id: 'task-quadrant-grain-survey',
+    title: 'Workspace pebble grain-size distribution count',
+    description: 'Document 1 m² regolith quadrant to establish fluvial energy baseline.',
+    status: 'pending',
+    estimatedMinutes: 12,
+    isIndependent: true,
+    category: 'survey',
+  },
+  {
+    id: 'task-thermal-baseline',
+    title: 'Ground surface thermal baseline (Sunlit vs Shadow)',
+    description: 'Record radiometric surface temperature contrast across boulder shadow contacts.',
+    status: 'pending',
+    estimatedMinutes: 10,
+    isIndependent: true,
+    category: 'atmospheric',
+  },
+  {
+    id: 'task-cache-inspection',
+    title: 'Sample tube cache seal inspection',
+    description: 'Inspect sample return tube seals and mechanical latching mechanisms.',
+    status: 'pending',
+    estimatedMinutes: 15,
+    isIndependent: true,
+    category: 'maintenance',
+  },
+];
+
 
 async function runTests() {
   console.log('\n======================================================');
@@ -326,3 +377,4 @@ runTests().catch((err) => {
   console.error('Test execution failed:', err);
   process.exit(1);
 });
+

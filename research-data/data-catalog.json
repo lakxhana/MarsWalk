@@ -1,0 +1,96 @@
+{
+  "version": "1.7.0",
+  "description": "Inventory of existing runtime data, not newly acquired observations. Paths relative to project root. CSV files are human-readable exports; application uses original JSON/assets.",
+  "datasets": [
+    {
+      "id": "rover_route",
+      "runtime_file": "src/lib/jezeroNamedData.json",
+      "source_url": "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_traverse.json",
+      "limitations": "Historical recorded rover path; not a certified astronaut route.",
+      "sha256": "450498bf2b99b4baffc8c3b27d9d6eaf64b9b7c58d53415ed082f3652b69b92f"
+    },
+    {
+      "id": "weather",
+      "runtime_file": "src/lib/verifiedWeather.json",
+      "source_url": "https://mars.nasa.gov/rss/api/?feed=weather&category=mars2020&feedtype=json",
+      "limitations": "Historical daily summaries; no live prediction.",
+      "sha256": "1863f5d6bcb6605488ab2ab80348177d1467fa89a92b84e130b2e91339edd825"
+    },
+    {
+      "id": "west_elevation",
+      "runtime_file": "src/lib/jezeroWestElevation.json",
+      "source_url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/mars2020_trn/HiRISE/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40.tif",
+      "limitations": "Derived and resampled elevation; 385 x 257 cells, not original 1 m resolution.",
+      "sha256": "0edb670953afda53acbc16cfcbd254ad9a9e3ff7d83ad6a8ae3ca9a855f29478"
+    },
+    {
+      "id": "west_imagery",
+      "runtime_file": "public/assets/nasa/jezero-west.jpg",
+      "source_url": "https://trek.nasa.gov/tiles/Mars/EQ/JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first_dd",
+      "limitations": "Bundled zoom 14 mosaic; source layer name does not imply 25 cm bundled resolution.",
+      "sha256": "64b9fe58a98d59358700f34b6f65135c811227329ba5fb89fa66851ca00c2026"
+    },
+    {
+      "id": "detail_imagery",
+      "runtime_file": "public/assets/nasa/jezero-delta-detail.jpg",
+      "source_url": "https://trek.nasa.gov/tiles/Mars/EQ/JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first_dd",
+      "limitations": "Bundled zoom 17 orbital mosaic; not a ground photograph.",
+      "sha256": "e358be4ca577842eb88c6e037d085dba1e691fb92a4c999355bc4b30798129bc"
+    }
+  ],
+  "oxygen_reference": {
+    "rate_g_per_person_hour": 86,
+    "source": "https://ntrs.nasa.gov/api/citations/20210024855/downloads/BVAD_2.15.22-final.pdf#page=149",
+    "table": "4-70",
+    "meaning": "Typical EVA metabolic oxygen consumption, not total suit demand or a tank-fill prescription."
+  },
+  "not_live": [
+    "temperature",
+    "rover path",
+    "astronaut position",
+    "oxygen endurance",
+    "communication delay"
+  ],
+  "sources_metadata": {
+    "sites_url": "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json",
+    "retrieved_as_recorded_in_existing_snapshot": "2026-11-12",
+    "elevation": {
+      "west": 77.3876953125,
+      "east": 77.464599609375,
+      "north": 18.47900390625,
+      "south": 18.424072265625,
+      "cols": 385,
+      "rows": 257,
+      "source": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/mars2020_trn/HiRISE/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40.tif",
+      "sourcePixelMeters": 1,
+      "units": "metres",
+      "datum": "MOLA topography / delta geoid (source product)",
+      "sampling": "bilinear resampling of source pixel centres"
+    },
+    "west_imagery": {
+      "source": "https://trek.nasa.gov/tiles/Mars/EQ/JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first_dd",
+      "zoom": 14,
+      "west": 77.3876953125,
+      "east": 77.464599609375,
+      "north": 18.47900390625,
+      "south": 18.424072265625,
+      "width": 1792,
+      "height": 1280,
+      "credit": "NASA / JPL / University of Arizona \u00b7 Mars Trek HiRISE mosaic",
+      "asset": "/assets/nasa/jezero-west.jpg"
+    },
+    "detail_imagery": {
+      "source": "https://trek.nasa.gov/tiles/Mars/EQ/JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first_dd",
+      "zoom": 17,
+      "west": 77.40280151367188,
+      "east": 77.40829467773438,
+      "north": 18.461151123046875,
+      "south": 18.455657958984375,
+      "width": 1024,
+      "height": 1024,
+      "credit": "NASA / JPL / University of Arizona \u00b7 Mars Trek HiRISE mosaic",
+      "asset": "/assets/nasa/jezero-delta-detail.jpg"
+    }
+  },
+  "validation_output": "research-data/planner-validation.json"
+}

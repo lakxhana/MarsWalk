@@ -1,0 +1,71 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {createElement} from 'react';
+import {act,create} from 'react-test-renderer';
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
+import {referenceReadings,replayCrew,REPLAY_DURATION} from '../src/lib/healthReplay';
+import {DEFAULT_OPERATIONS,operationsReport,type CrewOperations} from '../src/lib/crewOperations';
+import {metricHistory,metricValue,dataState} from '../src/lib/suitMetrics';
+import type {MissionStatusSnapshot,CommMessage} from '../src/lib/storage';
+import SuitMonitor from '../src/components/SuitMonitor';
+import EarthTeamMonitoring from '../src/components/EarthTeamMonitoring';
+
+async function run(){
+ const rows=readFileSync('research-data/health/bidmc_01_Numerics.csv','utf8').trim().split(/\r?\n/).slice(1).map(l=>l.split(',').map(v=>Number(v.trim())));
+ assert.equal(rows.length,481);assert.equal(REPLAY_DURATION,480);
+ const keys=['heartRate','respiratoryRate','bloodOxygen'] as const;
+ for(const row of rows){const reading=referenceReadings(200,200+row[0]);for(let i=0;i<keys.length;i++){if(!Number.isFinite(row[[1,3,4][i]])){assert.equal(reading[keys[i]],undefined,'missing source values stay missing');continue;}assert.equal(reading[keys[i]]?.value,row[[1,3,4][i]],'replay matches the independent original CSV');assert.equal(reading[keys[i]]?.capturedAt,200+row[0]);assert.equal(reading[keys[i]]?.source,'replay');assert.equal(reading[keys[i]]?.low,null);}}
+ const manual={metric:'heartRate' as const,value:77,capturedAt:190,source:'manual' as const,low:null,high:null};
+ const crew:CrewOperations={...DEFAULT_OPERATIONS,missionStart:100,health:{heartRate:manual},members:[{id:'b',name:'Alex',tankId:'B',oxygenMinutes:90,oxygenReserveMinutes:10,health:{}}]};
+ assert.equal(replayCrew(crew,250),crew,'no implicit replay');
+ const replay={...crew,healthReplay:{memberId:'b',startedAt:200,record:'bidmc01' as const}};
+ assert.equal(replayCrew(replay,199),replay,'never sample before start');
+ const sampled=operationsReport(replay,260);assert.equal(sampled.health?.heartRate?.value,77,'other crew unaffected');assert.equal(sampled.members?.[1].health?.heartRate?.value,rows[60][1]);
+ assert.equal(sampled.members?.[1].oxygenMinutes,90-160/60);assert.equal(sampled.members?.[1].health?.suitPressure,undefined,'do not fabricate unmeasured suit gas sensors');
+ assert.equal(crew.members?.[0].health?.heartRate,undefined,'manual inputs remain unmodified');
+ assert.equal(operationsReport({...replay,healthReplay:null},260).members?.[1].health?.heartRate,undefined,'manual mode restores original readings');
+ assert.deepEqual(referenceReadings(200,205),referenceReadings(200,205),'paused clock freezes source');
+ assert.equal(referenceReadings(200,225).heartRate?.sampleSeconds,25,'five seconds at 5× selects 25-second sample');
+ const finished=referenceReadings(200,900);assert.equal(finished.heartRate?.capturedAt,680,'end does not fabricate fresh timestamp or loop');assert.equal(dataState(finished.heartRate,900,900),'Old at capture');
+ const ended=operationsReport({...replay,completedAt:250},900);assert.equal(ended.members?.[1].health?.heartRate?.capturedAt,250,'mission end freezes replay');
+ const snap=(at:number):MissionStatusSnapshot=>({missionId:'health-mission',capturedAtSimTime:at,position:{x:0,z:0},coordinateReference:'test',missionElapsedSeconds:at-100,missionBudgetMinutes:60,reserveMinutes:10,returnEstimateMinutes:1,movementState:'Walking',operations:operationsReport(replay,at)});
+ const hist=[snap(200),snap(205),snap(210),snap(700)];
+ assert.deepEqual(metricHistory(hist,'b','heartRate',210).map(p=>p.at),[200,205,210],'no future reports in trend');
+ assert.deepEqual(metricHistory([snap(200),snap(205)],'lead','heartRate',205).map(p=>p.at),[190],'duplicate held samples are not new measurements');
+ assert.equal(metricValue(sampled,'b','bloodOxygen'),rows[60][4]);assert.equal(metricValue(sampled,'b','tank'),90-160/60,'SpO2 never substitutes for tank endurance');
+ assert.equal(metricValue(sampled,'missing','heartRate'),undefined,'never borrow another astronaut’s reading');
+ assert.equal(dataState({metric:'heartRate',value:110,capturedAt:200,source:'manual',low:null,high:100},200,500),'Above entered limit · delayed');
+ let selected:string|null|undefined;let ui:ReturnType<typeof create>;
+ await act(async()=>{ui=create(createElement(SuitMonitor,{status:snap(210),history:hist,now:210,active:true,onReplay:id=>{selected=id;}}));});
+ await act(async()=>ui.root.findByProps({'aria-label':'Suit astronaut'}).props.onChange({target:{value:'b'}}));
+ await act(async()=>ui.root.findAllByType('button').find(b=>b.findAllByType('span').some(s=>s.children.join('')==='Blood oxygen (SpO₂)'))!.props.onClick());
+ assert.equal(ui.root.findByProps({'aria-label':'Inspect suit metric'}).props.value,'bloodOxygen');
+ assert.match(JSON.stringify(ui.toJSON()),/Reference replay/);assert.doesNotMatch(JSON.stringify(ui.toJSON()),/sensor connected/i);
+ await act(async()=>ui.root.findByProps({'aria-label':'Inspect suit metric'}).props.onChange({target:{value:'suitPressure'}}));
+ assert.match(JSON.stringify(ui.toJSON()),/No reading/);
+ await act(async()=>ui.root.findAllByType('button').find(b=>b.children.join('').startsWith('Start / restart'))!.props.onClick());assert.equal(selected,'b');
+ await act(async()=>ui.unmount());
+ const message:CommMessage={id:'p',kind:'status_update',direction:'uplink',questionText:'',observationId:'',siteId:'',siteName:'',taskId:null,originalPlanVersion:1,originalPlanSummary:'',status:'in_transit',sentAtSimTime:210,deliveredAtSimTime:510,statusSnapshot:snap(210)};
+ let modeCalls:unknown[]=[];
+ const props={messages:[message],simTime:509,statusUpdateIntervalSeconds:5,oneWayDelayMinutes:5,simulationPaused:false,missionActive:true,simulationSpeedMultiplier:1,missionName:'Health test',missionId:'health-mission',isLocalOnly:true,onChangeRole:()=>{},onToggleSimulation:()=>{},onSetOneWayDelayMinutes:(v:number)=>modeCalls.push(['delay',v]),onSetSimulationSpeedMultiplier:(v:number)=>modeCalls.push(['speed',v]),onAdvanceSimTime:()=>{},onReloadMessages:async()=>{}};
+ await act(async()=>{ui=create(createElement(EarthTeamMonitoring,props));});assert.equal(ui.root.findByType(SuitMonitor).props.status,null,'Earth hides health before delivery');
+ await act(async()=>ui.update(createElement(EarthTeamMonitoring,{...props,simTime:510})));assert.equal(ui.root.findByType(SuitMonitor).props.status.operations.capturedAt,210,'Earth health is the same old snapshot as the map');
+ assert.equal(ui.root.findByType(SuitMonitor).props.history.length,1);
+ const mode=()=>ui.root.findByProps({'aria-label':'Earth communication mode'});
+ await act(async()=>mode().props.onChange({target:{value:'delayed'}}));assert.deepEqual(modeCalls,[['delay',5]],'do not reset the requested delay with a second speed command');modeCalls=[];
+ await act(async()=>mode().props.onChange({target:{value:'fast'}}));assert.deepEqual(modeCalls,[['speed',5]]);modeCalls=[];
+ await act(async()=>mode().props.onChange({target:{value:'normal'}}));assert.deepEqual(modeCalls,[['speed',1]]);
+ await act(async()=>ui.unmount());
+ // Parse genuine GLB geometry with Three.js. Node has no image decoder/GPU, so
+ // remove material texture slots only for this CPU geometry/bounds check.
+ const bytes=readFileSync('public/assets/models/astronaut.glb');assert.equal(createHash('sha256').update(readFileSync('research-data/health/astronaut-original.glb')).digest('hex'),'d18c141410542b935113d1c25a9271d90c40d44015a64295b7b68a30f0ce2820');assert.equal(bytes.readUInt32LE(0),0x46546c67);assert.equal(bytes.readUInt32LE(8),bytes.length);
+ const jsonLength=bytes.readUInt32LE(12),doc=JSON.parse(bytes.subarray(20,20+jsonLength).toString());const binary=bytes.subarray(28+jsonLength);assert.ok(doc.images.every((i:{bufferView?:number;uri?:string})=>i.bufferView!==undefined&&!i.uri));assert.ok(doc.buffers.every((b:{uri?:string})=>!b.uri),'model has no external textures or network dependencies');
+ for(const view of doc.bufferViews)assert.ok((view.byteOffset??0)+view.byteLength<=binary.length);
+ doc.materials=doc.materials.map(()=>({pbrMetallicRoughness:{baseColorFactor:[1,1,1,1]}}));doc.images=[];doc.textures=[];doc.extensionsUsed=[];
+ const raw=Buffer.from(JSON.stringify(doc)),json=Buffer.alloc(Math.ceil(raw.length/4)*4,32);raw.copy(json);const glb=Buffer.alloc(28+json.length+binary.length);glb.writeUInt32LE(0x46546c67);glb.writeUInt32LE(2,4);glb.writeUInt32LE(glb.length,8);glb.writeUInt32LE(json.length,12);glb.writeUInt32LE(0x4e4f534a,16);json.copy(glb,20);glb.writeUInt32LE(binary.length,20+json.length);glb.writeUInt32LE(0x004e4942,24+json.length);binary.copy(glb,28+json.length);
+ const model=(await new GLTFLoader().parseAsync(glb.buffer.slice(glb.byteOffset,glb.byteOffset+glb.length),'')).scene;const box=new THREE.Box3().setFromObject(model);const size=box.getSize(new THREE.Vector3());assert.ok(size.y>size.x&&size.y>size.z,'NASA model is upright after its authored transform');const center=box.getCenter(new THREE.Vector3());model.scale.multiplyScalar(3/size.y);model.position.sub(center.multiplyScalar(3/size.y));const normalized=new THREE.Box3().setFromObject(model);assert.ok(Math.abs(normalized.getSize(new THREE.Vector3()).y-3)<.001);assert.ok(normalized.getCenter(new THREE.Vector3()).length()<.001);
+ console.log('PASS health support: 481 original CSV samples, member isolation, oxygen separation, stale/end/paused replay, delay-safe trends, interactive metric selection, modes and NASA GLB geometry');
+}
+run().then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1);});

@@ -4,8 +4,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
-        serif: ['Spectral', 'Georgia', 'serif'],
+        sans: ['"Rubik Variable"', 'Rubik', 'system-ui', 'sans-serif'],
+        serif: ['"Rubik Variable"', 'Rubik', 'system-ui', 'sans-serif'],
+        mono: ['"Rubik Variable"', 'Rubik', 'system-ui', 'sans-serif'],
       },
     },
   },

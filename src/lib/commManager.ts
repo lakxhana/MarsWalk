@@ -1,3 +1,4 @@
+import type {AdviceContext} from './adviceTiming';
 // Simulated Communication & Mission State Manager
 // Models communication delay between Mars Explorer and remote Earth Science Team.
 // Maintains message state machine (queued -> in_transit -> delivered -> replied),
@@ -169,6 +170,7 @@ export async function sendReplyFromScienceTeam(params: {
   simTime: number;
   oneWayDelayMinutes: number;
   authorName?: string;
+  adviceContext?: AdviceContext;
 }): Promise<CommMessage> {
   const {
     messageId,
@@ -192,6 +194,7 @@ export async function sendReplyFromScienceTeam(params: {
     replyDeliveredAtSimTime: simTime + delaySec,
     replyPlanVersion: msg.originalPlanVersion,
     planDifference: null,
+    replyAdviceContext: params.adviceContext,
   };
 
   await saveMessage(updated);
@@ -237,14 +240,15 @@ export async function tickMessageStatuses(
   return { updatedMessages, hasChanges };
 }
 
-export async function sendCrewMessage(params: { text: string; direction: 'uplink' | 'downlink'; simTime: number; oneWayDelayMinutes: number }): Promise<CommMessage> {
+export async function sendCrewMessage(params: { text: string; direction: 'uplink' | 'downlink'; simTime: number; oneWayDelayMinutes: number; adviceContext?: AdviceContext }): Promise<CommMessage> {
   const text = params.text.trim();
   if (!text || text.length > 2000) throw new Error('Enter a message of up to 2,000 characters.');
   if (!Number.isFinite(params.oneWayDelayMinutes) || params.oneWayDelayMinutes < 0) throw new Error('Invalid signal delay.');
   const message: CommMessage = {
     id: createMessageId('chat'), kind: 'chat', direction: params.direction,
+    adviceContext: params.direction==='downlink'?params.adviceContext:undefined,
     observationId: '', siteId: 'mission', siteName: 'Crew communication', taskId: null,
-    questionText: text, originalPlanVersion: 0, originalPlanSummary: '', status: 'in_transit',
+    questionText: text, originalPlanVersion: params.adviceContext?.planVersion??0, originalPlanSummary: params.adviceContext?`Advice for ${params.adviceContext.destinationName}`:'', status: 'in_transit',
     sentAtSimTime: params.simTime, deliveredAtSimTime: params.simTime + Math.round(params.oneWayDelayMinutes * 60),
   };
   await saveMessage(message);

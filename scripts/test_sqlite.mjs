@@ -19,8 +19,8 @@ try {
   assert.deepEqual(db.list('messages')[0],msg);
   assert.equal(db.getMission().simTime,200);
   db.seed([{...task,title:'Do not overwrite existing'}]);assert.equal(db.list('tasks')[0].title,'Survey');
-  db.put('messages',{...msg,replyText:'Proceed',replySentAtSimTime:450,replyDeliveredAtSimTime:750});
-  db.put('messages',{...msg,status:'delivered'});assert.equal(db.list('messages')[0].replyText,'Proceed');
+  db.put('messages',{...msg,replyText:'Proceed',replySentAtSimTime:450,replyDeliveredAtSimTime:750,replyAdviceContext:{missionId:'m',planVersion:2,validUntilSimTime:700}});
+  db.put('messages',{...msg,status:'delivered'});assert.equal(db.list('messages')[0].replyText,'Proceed');assert.equal(db.list('messages')[0].replyAdviceContext.validUntilSimTime,700);
   assert.throws(()=>db.put('messages',{...msg,deliveredAtSimTime:0}));
   assert.throws(()=>db.list('mission; DROP TABLE observations'));
   assert.throws(()=>db.importRecords({observations:[{...note,id:'must-not-save'}],messages:[{id:'invalid'}],tasks:[]}));

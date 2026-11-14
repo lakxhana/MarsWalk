@@ -1,13 +1,14 @@
+import MissionLog from './MissionLog';
+import type {MissionLogEntry} from '@/lib/crewOperations';
 import { useState } from 'react';
 import { saveTask, type CommMessage, type FieldTask, type ObservationRecord } from '@/lib/storage';
 import { formatSimLMST } from '@/lib/commManager';
-import MissionConversation from './MissionConversation';
 
-export default function CrewFieldPanel({onClose, observations, messages, tasks, simTime, delay, paused, reload}: {
-  onClose:()=>void; observations:ObservationRecord[]; messages:CommMessage[]; tasks:FieldTask[];
+export default function CrewFieldPanel({entries=[],onClose, observations, messages, tasks, simTime, paused, reload}: {
+  entries?:MissionLogEntry[];onClose:()=>void; observations:ObservationRecord[]; messages:CommMessage[]; tasks:FieldTask[];
   simTime:number; delay:number; paused:boolean; reload:()=>Promise<void>;
 }) {
-  const [tab,setTab]=useState<'messages'|'notes'|'tasks'>('messages');
+  const [tab,setTab]=useState<'notes'|'tasks'|'missions'>('notes');
   const [query,setQuery]=useState(''); const [taskTitle,setTaskTitle]=useState('');
   const [error,setError]=useState(''); const [busy,setBusy]=useState(false);
   const updateTask = async (task:FieldTask, status:FieldTask['status']) => {
@@ -25,8 +26,8 @@ export default function CrewFieldPanel({onClose, observations, messages, tasks, 
   };
   return <aside className="crew-field-panel" aria-label="Crew field log">
     <div className="inbox-heading"><div><h2>Field log</h2><p className="delivery-note">{formatSimLMST(simTime)}{paused ? ' · paused' : ' · mission time running'}</p></div><button className="quiet-button" onClick={onClose} aria-label="Close field log">Close</button></div>
-    <div className="panel-tabs">{(['messages','notes','tasks'] as const).map(t=><button key={t} aria-pressed={tab===t} onClick={()=>setTab(t)}>{t==='notes'?'Previous notes':t==='tasks'?'Tasks':'Messages'}</button>)}</div>
-    {tab==='messages' && <MissionConversation messages={messages} side="mars" simTime={simTime} delay={delay} paused={paused} reload={reload}/>}
+    <div className="panel-tabs">{(['notes','tasks','missions'] as const).map(t=><button key={t} aria-pressed={tab===t} onClick={()=>setTab(t)}>{t==='missions'?'Missions':t==='notes'?'Notes':'Tasks'}</button>)}</div>
+    {tab==='missions'&&<MissionLog entries={entries} now={simTime}/>}
     {tab==='notes' && <div className="field-panel-scroll"><label className="sr-only" htmlFor="notes-search">Search previous notes</label><input id="notes-search" placeholder="Search notes…" value={query} onChange={e=>setQuery(e.target.value)}/>
       {!observations.length && <p className="inbox-empty">No saved notes yet. Use Record observation in the walk.</p>}
       {observations.filter(o=>(o.note+' '+o.siteName).toLowerCase().includes(query.toLowerCase())).slice().reverse().map(o=><article className="field-note" key={o.id}><strong>{o.siteName}</strong><p className="delivery-note">{o.createdAtSimTime == null ? new Date(o.timestamp).toLocaleString() : formatSimLMST(o.createdAtSimTime)}</p><p className="message-body">{o.note}</p>{o.imageRef && <figure><img src={o.imageRef} alt={o.imageCaption || 'Observation attachment'}/><figcaption className="delivery-note">{o.imageIsArchival?'Archival image':'Crew attachment'}</figcaption></figure>}{o.audioRef && <audio controls src={o.audioRef} aria-label="Saved voice note"/>}<details><summary>Location</summary><p>{o.location.description || 'Location not recorded.'}</p></details></article>)}

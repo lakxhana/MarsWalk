@@ -20,7 +20,7 @@ const header=renderToStaticMarkup(createElement(Header,{currentView:'globe',role
 assert.doesNotMatch(header,/>Walk</);assert.doesNotMatch(header,/Return to active walk/);
 let starts=0;const ui=create(createElement(NamedSitePlanner,{onStart:()=>starts++,crew}));
 assert.equal(ui.root.findAllByType('form')[0].findAllByType('form').length,1,'health entry is not nested in required preflight form');
-const details=ui.root.findAllByType('details');const crewSection=details.find(d=>d.findAllByType('summary')[0]?.children.join('')==='Crew & fieldwork setup')!;
+const details=ui.root.findAllByType('details');const crewSection=details.find(d=>d.findAllByType('summary')[0]?.children.join('')==='Crew & stops')!;
 assert.equal(crewSection.findAllByType('details').length,1,'crew section contains no nested task or health panels');
 assert.ok(details.some(d=>d.findAllByType('summary')[0]?.children.join('')==='Route tasks'));
 act(()=>ui.root.findAllByType('form')[0].props.onSubmit({preventDefault(){}}));assert.equal(starts,1);

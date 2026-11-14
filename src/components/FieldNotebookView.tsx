@@ -121,7 +121,7 @@ export default function FieldNotebookView({
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      setStorageError(`Failed to load records from SQLite: ${msg}`);
+      setStorageError(`Failed to load shared records: ${msg}`);
     }
   }, [selectedStationId, selectedObsId, simTime]);
 
@@ -460,7 +460,7 @@ export default function FieldNotebookView({
         <div className="p-3 border-t border-[#3c342e] bg-neutral-50/70 text-[11px] text-[#b3a595] flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            <span>SQLite connected</span>
+            <span>Shared database connected</span>
           </div>
           <button
             onClick={() => setActiveTab('data')}
@@ -1212,7 +1212,7 @@ export default function FieldNotebookView({
                       Database & export
                     </h3>
                     <p className="text-xs text-[#b3a595] mt-0.5 leading-relaxed">
-                      Observations, messages and tasks are stored in your local SQLite database.
+                      Observations, messages and tasks are stored in the shared mission database.
                       Legacy notebook entries from localStorage were preserved and migrated.
                     </p>
                   </div>

@@ -1,0 +1,15 @@
+{
+  "checked": "2026-11-14",
+  "dataset": "https://physionet.org/content/bidmc/1.0.0/",
+  "rawCSV": "https://physionet.org/files/bidmc/1.0.0/bidmc_csv/bidmc_01_Numerics.csv",
+  "datasetLicense": "https://opendatacommons.org/licenses/by/1-0/",
+  "modelPage": "https://science.nasa.gov/3d-resources/astronaut/",
+  "modelDownload": "https://raw.githubusercontent.com/nasa/NASA-3D-Resources/master/3D%20Models/Astronaut/Astronaut.glb",
+  "modelCredit": "DigitalSpace Corporation / NASA 3D Resources",
+  "sha256": {
+    "research-data/health/bidmc_01_Numerics.csv": "27d43794cf2e7150db10e8bfe61d2bfdb26873a8f1629ffc5fbee5c9a4eb6ef5",
+    "research-data/health/astronaut-original.glb": "d18c141410542b935113d1c25a9271d90c40d44015a64295b7b68a30f0ce2820",
+    "public/assets/models/astronaut.glb": "4426b11791995867d48e6610218cffc1779ead933d3d7572b02730e8695bb7af",
+    "src/lib/healthReference.json": "fb52d8e22a9cbd4deabc0fbb97c4a58eec168716941c1740962263ffd8f5d59c"
+  }
+}

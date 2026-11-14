@@ -6,6 +6,7 @@ import {create,act,type ReactTestRenderer} from 'react-test-renderer';
 import assert from 'node:assert/strict';
 import FieldWalk from '../src/components/FieldWalk';
 import WalkScene from '../src/components/WalkScene';
+import SurfaceContext from '../src/components/SurfaceContext';
 import RegionalMap from '../src/components/RegionalMap';
 import CrewOperationsPanel from '../src/components/CrewOperationsPanel';
 import NamedSitePlanner from '../src/components/NamedSitePlanner';
@@ -30,17 +31,54 @@ async function run(){await act(async()=>{ui=create(createElement(FieldWalk,props
  now=105;await act(async()=>{ui.update(createElement(FieldWalk,{...props(),visible:false}));});assert.ok(position.routeDist>0,'crew moves while Earth workspace is shown');
  const findButton=(text:string)=>ui.root.findAllByType('button').find(b=>b.children.join('')===text)!;
  assert.equal(ui.root.findAllByType(WalkScene).length,1,'3D is the default walk');
+ assert.equal(ui.root.findByType(SurfaceContext).props.expanded,false);
+ await act(async()=>findButton('Surface').props.onClick());
+ assert.equal(ui.root.findByType(SurfaceContext).props.expanded,true,'Surface opens the sidebar details');
+ assert.equal(ui.root.findAllByType(WalkScene).length,1,'Surface does not replace the first-person walk');
  await act(async()=>{findButton('2D map').props.onClick();});assert.equal(ui.root.findAllByType(RegionalMap).length,1);const beforeToggle=position.routeDist;await act(async()=>{findButton('3D walk').props.onClick();});assert.equal(position.routeDist,beforeToggle,'view switching preserves progress');
  await act(async()=>{findButton('Pause walk').props.onClick();});const pausedPosition=position.routeDist;now=420;await act(async()=>{ui.update(createElement(FieldWalk,props()));});assert.equal(position.routeDist,pausedPosition,'pause walk stops position');assert.ok(operationsReport(crew,now).stop!.elapsedSeconds>=300);assert.ok(operationsReport(crew,now).oxygenMinutes<8,'oxygen counts time stopped');
  assert.ok(ui.root.findAllByProps({className:'field-warning'}).length>0,'stop/oxygen warning visible');
  await act(async()=>{findButton('Resume walk').props.onClick();});now=500;await act(async()=>{ui.update(createElement(FieldWalk,props()));});assert.equal(journey,'arrive');assert.equal(position.routeDist,route.totalDistanceMeters,'arrival clamps to endpoint');
  const base={messages:packets,statusUpdateIntervalSeconds:5,simulationPaused:false,missionActive:true,oneWayDelayMinutes:5,simulationSpeedMultiplier:1,missionName:'Test',missionId:'jezero-traverse-1',isLocalOnly:true,onChangeRole:()=>{},onToggleSimulation:()=>{},onSetOneWayDelayMinutes:()=>{},onSetSimulationSpeedMultiplier:()=>{},onAdvanceSimTime:()=>{},onReloadMessages:async()=>{},plannedRoute:route};
  const before=renderToStaticMarkup(createElement(EarthTeamMonitoring,{...base,simTime:399}));assert.match(before,/First crew report in/);assert.doesNotMatch(before,/8 min · Tank A/);assert.doesNotMatch(before,/88 bpm/);
- const after=renderToStaticMarkup(createElement(EarthTeamMonitoring,{...base,simTime:800}));assert.match(after,/100%/);assert.match(after,/O₂ reserve reached/);assert.match(after,/Tank A/);assert.match(after,/88 bpm/);assert.match(after,/Reserve 7 min/);assert.match(after,/Health &amp; suit readings/);
+ const after=renderToStaticMarkup(createElement(EarthTeamMonitoring,{...base,simTime:800}));assert.match(after,/100%/);assert.match(after,/O₂ reserve reached/);assert.match(after,/Tank A/);assert.match(after,/88 bpm/);assert.match(after,/reserve 7 min/i);assert.match(after,/Astronaut suit monitor/);
  const estimate=estimateFieldwork(660,1.1,makeRouteTasks(3,5),10);assert.equal(estimate.travel,10);assert.equal(estimate.total,45);
- const livePacket={...packets[packets.length-1],deliveredAtSimTime:500};const liveMarkup=renderToStaticMarkup(createElement(EarthTeamMonitoring,{...base,messages:[livePacket],simTime:500,oneWayDelayMinutes:0}));assert.match(liveMarkup,/Live demo/);assert.match(liveMarkup,/88 bpm/);assert.match(liveMarkup,/100%/);
+ const livePacket={...packets[packets.length-1],deliveredAtSimTime:500};const liveMarkup=renderToStaticMarkup(createElement(EarthTeamMonitoring,{...base,messages:[livePacket],simTime:500,oneWayDelayMinutes:0}));assert.match(liveMarkup,/1× · no delay/);assert.match(liveMarkup,/88 bpm/);assert.match(liveMarkup,/100%/);
  const setup=renderToStaticMarkup(createElement(CrewOperationsPanel,{setup:true,state:{...crew,plannedStops:4},now,budget:75,onBudget:()=>{},onChange:()=>{}}));assert.match(setup,/Mission duration/);assert.match(setup,/Planned observation stops/);assert.match(setup,/value="75"/);
  const plan=renderToStaticMarkup(createElement(NamedSitePlanner,{onStart:()=>{},budget:60,stops:4,stopMinutes:7}));assert.match(plan,/Observe 28 min/);
  assert.ok(after.indexOf('class="earth-progress"')>after.indexOf('<aside'),'Earth progress is in sidebar');
- await act(async()=>{ui.unmount();});console.log('PASS named sites, sourced weather, mounted walking/pause/resume/arrival, background progress and delayed Earth operations');}
+ await act(async()=>{ui.unmount();});await checkPaceAndReturn();console.log('PASS named sites, sourced weather, mounted walking/pause/resume/arrival, background progress and delayed Earth operations');}
+async function checkPaceAndReturn(){
+ const origin=route.points[0];
+ const fixture={...route,id:'pace-fixture',totalDistanceMeters:660,points:[{...origin,distanceFromStart:0},{...origin,x:origin.x+660,distanceFromStart:660}]};
+ let clock=0,readings:MissionStatusSnapshot[]=[];
+ let state={...DEFAULT_OPERATIONS,missionStart:0,walkSpeedFactor:.7};
+ let current=sampleRoute(fixture,0);
+ const getProps=()=>({...props(),delay:0,route:fixture,initialPose:current,simTime:clock,elapsed:clock,crew:state,
+  onPose:(p:typeof current)=>{current=p;},onCrew:(c:typeof state)=>{state=c;},
+  onInvestigate:(active:boolean)=>{state=active?startStop(state,clock):finishStop(state,clock);},
+  onJourney:()=>{},onReport:async(s:MissionStatusSnapshot)=>{readings.push(s);}});
+ let view:ReactTestRenderer;
+ await act(async()=>{view=create(createElement(FieldWalk,getProps()));});
+ clock=20;await act(async()=>{view.update(createElement(FieldWalk,getProps()));});
+ let packet=readings[readings.length-1];
+ assert.ok(Math.abs(current.routeDist-15.4)<1e-8);
+ assert.ok(Math.abs(packet.planning!.paceMps-.77)<1e-8,'pace follows actual simulated movement');
+ assert.ok(Math.abs(packet.planning!.arrivalMinutes-(660-15.4)/.77/60)<1e-8,'position and ETA use the same capture');
+ const button=(label:string)=>view.root.findAllByType('button').find(b=>b.children.join('')===label)!;
+ await act(async()=>{button('Pause walk').props.onClick();});
+ clock=80;await act(async()=>{view.update(createElement(FieldWalk,getProps()));});
+ packet=readings[readings.length-1];assert.ok(Math.abs(packet.planning!.paceMps-.77)<1e-8,'investigation time does not slow the moving-pace average');
+ await act(async()=>{view.root.findByProps({'aria-label':'Simulation walking pace'}).props.onChange({target:{value:'1.2'}});});
+ await act(async()=>{view.update(createElement(FieldWalk,getProps()));button('Resume walk').props.onClick();});
+ clock=100;await act(async()=>{view.update(createElement(FieldWalk,getProps()));});
+ packet=readings[readings.length-1];assert.ok(Math.abs(packet.planning!.paceMps-1.045)<1e-8,'ETA blends recent moving segments');
+ await act(async()=>{view.unmount();});
+ const back=reverseRoute(fixture,current.routeDist);readings=[];
+ await act(async()=>{view=create(createElement(FieldWalk,{...getProps(),route:back,initialPose:sampleRoute(back,0)}));});
+ clock=200;await act(async()=>{view.update(createElement(FieldWalk,{...getProps(),route:back,initialPose:sampleRoute(back,0)}));});
+ packet=readings[readings.length-1];assert.equal(packet.returnEstimateMinutes,0,'return countdown reaches zero at base');assert.equal(packet.planning!.arrivalMinutes,0);
+ await act(async()=>{view.unmount();});
+ console.log('PASS mounted adaptive pace, coherent report estimates, investigation pause and return countdown');
+}
 run().then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1);});

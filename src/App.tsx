@@ -1,6 +1,13 @@
+import {sessionRequest,type SessionCommand,type SessionReply} from './lib/sharedSession';
+import MissionLog from './components/MissionLog';
+import FloatingChat from './components/FloatingChat';
+import {getDeliveredMissionActivity,getLatestMissionActivity} from '@/lib/earthMonitoring';
+import MissionReview from './components/MissionReview';
+import type { MissionProposal } from './lib/missionProposal';
+import {hasOperationalPlanChange} from '@/lib/adviceTiming';
 import {preflight} from '@/lib/preflight';
 import {makeRouteTasks} from '@/lib/fieldworkPlan';
-import { DEFAULT_OPERATIONS, STUDIES, startStop, finishStop, recordEvidence, operationsReport, type CrewOperations } from '@/lib/crewOperations';
+import { archiveMission, DEFAULT_OPERATIONS, STUDIES, startStop, finishStop, recordEvidence, operationsReport, type CrewOperations } from '@/lib/crewOperations';
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import CrewFieldPanel from '@/components/CrewFieldPanel';
 import Header, { type AppView, type UserRole } from '@/components/Header';
@@ -13,8 +20,6 @@ import FieldNotebookView from '@/components/FieldNotebookView';
 import EarthTeamMonitoring from '@/components/EarthTeamMonitoring';
 import SourcesAndCoverageView from '@/components/SourcesAndCoverageView';
 import {
-  migrateLegacyNotebook,
-  initializeDefaultTasks,
   getAllMessages,
   getAllObservations,
   getAllTasks,
@@ -41,6 +46,9 @@ const DEFAULT_MISSION_BUDGET_MINUTES = 60;
 const DEFAULT_MISSION_RESERVE_MINUTES = 10;
 
 export interface PersistedMissionState {
+  simulationPaused?:boolean;restorePending?:boolean;
+  missionProposal?: MissionProposal | null;
+  earthDraft?: {crew:CrewOperations;budget:number;reserve:number};
   crewOperations?: CrewOperations;
   view: AppView;
   simTime: number;
@@ -82,17 +90,26 @@ function readPersistedMission(): PersistedMissionState | null {
   }
 }
 
-export default function App({initialMission}: {initialMission?: PersistedMissionState | null} = {}) {
+export default function App({initialMission,shared=false}: {initialMission?: PersistedMissionState | null;shared?:boolean} = {}) {
+  const [controller,setController]=useState(!shared);
+  const controllerRef=useRef(!shared);const [syncError,setSyncError]=useState('');
+  const [clientId]=useState(()=>crypto.randomUUID());const appliedCommands=useRef<string[]>([]);
+  const commandHandler=useRef<(c:SessionCommand)=>void>(()=>{});
+  const invoke=(kind:string,payload:unknown,local:()=>void)=>{if(!shared||controllerRef.current)local();else {if(kind==='draft')local();void sessionRequest('commands',{id:crypto.randomUUID(),kind,payload,sessionId:walkSessionId}).catch(e=>setSyncError(String(e)));}};
   const missionToSave = useRef<PersistedMissionState | null>(null);
   const [missionSaveError, setMissionSaveError] = useState<string | null>(null);
   const statusSequenceRef = useRef(0);
   const [restoredMission] = useState(() => initialMission === undefined ? readPersistedMission() : initialMission);
-  const [crewOperations, setCrewOperations] = useState<CrewOperations>(restoredMission?.crewOperations ?? {...DEFAULT_OPERATIONS,missionStart:restoredMission?.missionStartedAtSimTime??null,destination:restoredMission?.plannedRoute?.destinationName??'Selected destination'});
+  const [crewOperations, setCrewOperations] = useState<CrewOperations>(restoredMission?.crewOperations ?? {...DEFAULT_OPERATIONS,name:'',tankId:'',missionStart:restoredMission?.missionStartedAtSimTime??null,destination:restoredMission?.plannedRoute?.destinationName??'Selected destination'});
   const latestStatusRef = useRef<MissionStatusSnapshot | null>(null);
   const crewOpsRef = useRef(crewOperations);
   crewOpsRef.current = crewOperations;
+  const [startRequested,setStartRequested] = useState(false);
+  const [missionProposal,setMissionProposal] = useState<MissionProposal|null>(restoredMission?.missionProposal??null);
+  const [earthDraft,setEarthDraft] = useState(restoredMission?.earthDraft??{crew:crewOperations,budget:restoredMission?.missionBudgetMinutes??60,reserve:restoredMission?.reserveMinutes??10});
   const [role, setRole] = useState<UserRole>('explorer');
   const [fieldPanelOpen, setFieldPanelOpen] = useState(false);
+  const [chatOpen,setChatOpen]=useState(false);
   const roleChosen = true;
   const [view, setView] = useState<AppView>('globe');
 
@@ -101,7 +118,8 @@ export default function App({initialMission}: {initialMission?: PersistedMission
   const handleInvestigation = useCallback((active:boolean) => {
     setCrewOperations(current => active ? startStop(current,simTime) : finishStop(current,simTime));
   }, [simTime]);
-  const [simulationPaused, setSimulationPaused] = useState(false);
+  const [restorePending,setRestorePending] = useState(restoredMission?.missionStartedAtSimTime != null);
+  const [simulationPaused, setSimulationPaused] = useState(restoredMission?.missionStartedAtSimTime != null);
   const [showRestoreNotice, setShowRestoreNotice] = useState(false);
   const [missionStartedAtSimTime, setMissionStartedAtSimTime] = useState<number | null>(restoredMission?.missionStartedAtSimTime ?? null);
   const [missionBudgetMinutes, setMissionBudgetMinutes] = useState(restoredMission?.missionBudgetMinutes ?? DEFAULT_MISSION_BUDGET_MINUTES);
@@ -114,6 +132,7 @@ export default function App({initialMission}: {initialMission?: PersistedMission
   const [simulationSpeedMultiplier, setSimulationSpeedMultiplier] = useState<number>(
     restoredMission?.simulationSpeedMultiplier ?? 1,
   );
+  const effectiveSpeed=oneWayDelayMinutes>0?1:simulationSpeedMultiplier;
   const [statusUpdateIntervalSeconds, setStatusUpdateIntervalSeconds] = useState(
     restoredMission?.statusUpdateIntervalSeconds ?? 10,
   );
@@ -155,12 +174,10 @@ export default function App({initialMission}: {initialMission?: PersistedMission
   // Demonstration destination identifier; it is not a named surface location.
 
 
-  // Initial persistence bootstrap: migrate localStorage to IndexedDB and initialize tasks
+  // Read only the selected server database; never seed or auto-import browser data.
   useEffect(() => {
     async function initDB() {
       try {
-        await migrateLegacyNotebook();
-        await initializeDefaultTasks();
         const [allMsgs, allObs, allTasks] = await Promise.all([
           getAllMessages(),
           getAllObservations(),
@@ -187,18 +204,21 @@ export default function App({initialMission}: {initialMission?: PersistedMission
 
   // Simulation time advances only while the shared simulation is running.
   useEffect(() => {
-    if (simulationPaused) return;
+    if (simulationPaused || !controller) return;
+    let last=Date.now();
     const timer = setInterval(() => {
-      setSimTime((prev) => advanceSimulationTime(prev, simulationSpeedMultiplier, simulationPaused));
+      const now=Date.now();const seconds=(now-last)/1000;last=now;
+      setSimTime((prev) => advanceSimulationTime(prev, shared?seconds*effectiveSpeed:effectiveSpeed, simulationPaused));
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [simulationPaused, simulationSpeedMultiplier]);
+  }, [simulationPaused, effectiveSpeed, controller, shared]);
 
   useEffect(() => {
     const snapshot: PersistedMissionState = {
       view,
       crewOperations,
+      missionProposal, earthDraft, simulationPaused, restorePending,
       simTime,
       missionStartedAtSimTime,
       missionBudgetMinutes,
@@ -227,7 +247,7 @@ export default function App({initialMission}: {initialMission?: PersistedMission
       console.error('Could not persist the current mission state:', error);
     }
   }, [
-    crewOperations, view, simTime, missionStartedAtSimTime, missionBudgetMinutes, reserveMinutes,
+    simulationPaused, restorePending, missionProposal, earthDraft, crewOperations, view, simTime, missionStartedAtSimTime, missionBudgetMinutes, reserveMinutes,
     plannedObservationMinutes, stopStartedAtSimTime, plannedRoute, evaPlan,
     walkSessionId, surfacePose, journeyState, planVersion, planSummaryText,
     oneWayDelayMinutes, simulationSpeedMultiplier, role, roleChosen, missionBase,
@@ -236,6 +256,7 @@ export default function App({initialMission}: {initialMission?: PersistedMission
 
   // Serialize SQLite checkpoints; frequent position updates cannot starve the save timer.
   useEffect(() => {
+    if(shared)return;
     let saving = false;
     let previous = '';
     const timer = setInterval(async () => {
@@ -248,19 +269,41 @@ export default function App({initialMission}: {initialMission?: PersistedMission
       finally {saving=false;}
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [shared]);
+
+  const applyShared=(m:PersistedMissionState)=>{
+    setSimTime(m.simTime);setCrewOperations(m.crewOperations??DEFAULT_OPERATIONS);setMissionProposal(m.missionProposal??null);
+    if(m.earthDraft&&!(role==='science_team'&&view==='plan'))setEarthDraft(m.earthDraft);setMissionStartedAtSimTime(m.missionStartedAtSimTime);setMissionBudgetMinutes(m.missionBudgetMinutes);setReserveMinutes(m.reserveMinutes);
+    setPlannedRoute(m.plannedRoute);setEvaPlan(m.evaPlan);setWalkSessionId(m.walkSessionId);setSurfacePose(m.surfacePose);setJourneyState(m.journeyState);setPlanVersion(m.planVersion);setMissionBase(m.missionBase);
+    setSimulationPaused(Boolean(m.simulationPaused));setRestorePending(Boolean(m.restorePending));setOneWayDelayMinutes(m.oneWayDelayMinutes);setSimulationSpeedMultiplier(m.simulationSpeedMultiplier);setStatusUpdateIntervalSeconds(m.statusUpdateIntervalSeconds??10);
+  };
+  const applySharedRef=useRef(applyShared);applySharedRef.current=applyShared;
+  useEffect(()=>{
+    if(!shared)return;let cancelled=false,busy=false;
+    const poll=async()=>{if(busy||cancelled)return;busy=true;try{
+      const ack=[...appliedCommands.current];
+      const reply=await sessionRequest<SessionReply>('session',{clientId,state:controllerRef.current?missionToSave.current:undefined,ack});
+      if(cancelled)return;
+      if(reply.mission&&(!reply.controller||reply.claimed))applySharedRef.current(reply.mission);
+      controllerRef.current=reply.controller;setController(reply.controller);setSyncError('');
+      if(reply.controller){if(!reply.claimed)appliedCommands.current=appliedCommands.current.filter(id=>!ack.includes(id));
+        for(const command of reply.commands)if(!appliedCommands.current.includes(command.id)){commandHandler.current(command);appliedCommands.current.push(command.id);}}
+      const [msgs,obs,ts]=await Promise.all([getAllMessages(),getAllObservations(),getAllTasks()]);if(!cancelled){setMessages(msgs);setObservations(obs);setTasks(ts);}
+    }catch(e){if(!cancelled){setSyncError(String(e));controllerRef.current=false;setController(false);}}finally{busy=false;}};
+    void poll();const timer=setInterval(()=>void poll(),1000);return()=>{cancelled=true;clearInterval(timer);};
+  },[shared,clientId]);
 
   // Update message statuses as simTime advances
   useEffect(() => {
     async function updateComms() {
-      if (messages.length === 0) return;
+      if (!controller || messages.length === 0) return;
       const { updatedMessages, hasChanges } = await tickMessageStatuses(messages, simTime);
       if (hasChanges) {
         setMessages(updatedMessages);
       }
     }
     updateComms();
-  }, [simTime, messages]);
+  }, [simTime, messages, controller]);
 
   const handleAdvanceSimTime = useCallback((seconds: number) => {
     if (simulationPaused) {
@@ -285,7 +328,7 @@ export default function App({initialMission}: {initialMission?: PersistedMission
   }, []);
 
   useEffect(() => {
-    if(crewOperations.missionStart===null) return;
+    if(!controller||crewOperations.missionStart===null) return;
     let cancelled=false;
     const titles=['Upload a context photo',STUDIES[crewOperations.study].task];
     const completed=[crewOperations.taskPhoto,crewOperations.taskNote];
@@ -299,15 +342,15 @@ export default function App({initialMission}: {initialMission?: PersistedMission
     }));
     void (async()=>{try{for(const task of autoTasks)await saveTask(task);const all=await getAllTasks();if(!cancelled)setTasks(all);}catch(e){if(!cancelled)setMissionSaveError(e instanceof Error?e.message:'Could not save destination tasks.');}})();
     return ()=>{cancelled=true;};
-  },[crewOperations.missionStart,crewOperations.destination,crewOperations.study,crewOperations.taskPhoto,crewOperations.taskNote,crewOperations.completedAt,journeyState,plannedRoute?.id,walkSessionId]);
+  },[controller,crewOperations.missionStart,crewOperations.destination,crewOperations.study,crewOperations.taskPhoto,crewOperations.taskNote,crewOperations.completedAt,journeyState,plannedRoute?.id,walkSessionId]);
 
-  const handleSaveWalkObservation = useCallback(async (observation: ObservationRecord) => {
+  const handleSaveWalkObservation = async (observation: ObservationRecord) => {
     await saveObservation(observation);
     setObservations(await getAllObservations());
     const endpoint=plannedRoute?.points[plannedRoute.points.length-1];
     const atDestination=Boolean(endpoint && typeof observation.location.x==='number' && typeof observation.location.z==='number' && Math.hypot(observation.location.x-endpoint.x,observation.location.z-endpoint.z)<=2 && !plannedRoute?.id?.startsWith('return-'));
-    setCrewOperations(current => recordEvidence(current,observation,atDestination));
-  }, [plannedRoute]);
+    invoke('evidence',{observation,atDestination},()=>setCrewOperations(current => recordEvidence(current,observation,atDestination)));
+  };
 
   const handleSendMissionStatus = useCallback(async (
     snapshot: MissionStatusSnapshot,
@@ -317,7 +360,8 @@ export default function App({initialMission}: {initialMission?: PersistedMission
       throw new Error('Earth status report is missing its simulated capture time.');
     }
     latestStatusRef.current = snapshot;
-    const sequenceNumber = ++statusSequenceRef.current;
+    const sequenceNumber = Math.max(statusSequenceRef.current,...messages.filter(m=>m.statusSnapshot?.missionId===snapshot.missionId).map(m=>m.statusSnapshot?.sequenceNumber??0))+1;
+    statusSequenceRef.current=sequenceNumber;
     await sendMissionStatusUpdate({
       statusSnapshot: { ...snapshot, operations: operationsReport(crewOpsRef.current,snapshot.capturedAtSimTime), sequenceNumber, taskSummary: tasks.map(({id,title,status}) => ({id,title,status})) },
       observationSnapshot: observation,
@@ -325,16 +369,28 @@ export default function App({initialMission}: {initialMission?: PersistedMission
       oneWayDelayMinutes,
     });
     await handleReloadComms();
-  }, [handleReloadComms, oneWayDelayMinutes, tasks]);
+  }, [handleReloadComms, oneWayDelayMinutes, tasks, messages]);
+
+  const handleCrewChange = (next:CrewOperations) => {
+    const previous=crewOpsRef.current;
+    if(previous.missionStart!==null&&hasOperationalPlanChange(previous,next))setPlanVersion(v=>v+1);
+    crewOpsRef.current=next;setCrewOperations(next);
+  };
 
   const handleEndMission = async () => {
-    const completed = {...finishStop(crewOpsRef.current,simTime),completedAt:simTime};
+    if(crewOpsRef.current.missionStart===null||crewOpsRef.current.completedAt!==null)return;
+    const completed = archiveMission(crewOpsRef.current,`jezero-traverse-${walkSessionId}`,simTime,oneWayDelayMinutes);
+    setMissionProposal(p=>p?{...p,status:'completed',responseAt:simTime+oneWayDelayMinutes*60}:null);
+    setSurfacePose(p=>({...p,movementMode:'paused'}));
+    setView('missions');
     crewOpsRef.current = completed;
     setCrewOperations(completed);
+    setRestorePending(false);
     setMissionStartedAtSimTime(null);
     setSimulationPaused(false); // Queued Earth reports must still arrive after the walk ends.
-    if(latestStatusRef.current) {
-      try { await handleSendMissionStatus({...latestStatusRef.current,capturedAtSimTime:simTime,movementState:'Stopped',activityEvent:'Walk ended',missionElapsedSeconds:simTime-(completed.missionStart??simTime)}); }
+    const finalSnapshot=latestStatusRef.current?.missionId===`jezero-traverse-${walkSessionId}`?latestStatusRef.current:plannedRoute?{missionId:`jezero-traverse-${walkSessionId}`,explorerId:'lead',planVersion,planSummary:plannedRoute.explanation,destinationName:plannedRoute.destinationName??completed.destination,position:surfacePose,coordinateReference:'Simulated crew; Jezero local metres',missionElapsedSeconds:simTime-(completed.missionStart??simTime),missionBudgetMinutes,reserveMinutes,returnEstimateMinutes:null,plannedRoutePoints:plannedRoute.points,mapMode:plannedRoute.mapMode,routeDistanceMeters:surfacePose.routeDist??0,routeTotalMeters:plannedRoute.totalDistanceMeters,headingRadians:surfacePose.yaw}:null;
+    if(finalSnapshot) {
+      try { await handleSendMissionStatus({...finalSnapshot,capturedAtSimTime:simTime,movementState:'Stopped',activityEvent:'Walk ended',missionElapsedSeconds:simTime-(completed.missionStart??simTime)}); }
       catch {setMissionSaveError('Walk saved; final Earth report could not be queued.');}
     }
   };
@@ -362,11 +418,16 @@ export default function App({initialMission}: {initialMission?: PersistedMission
     setPlanSummaryText(`Plan v${nextVersion}: Return to ${missionBase?.name || 'base'}`);
   }, [missionBase?.name, planVersion, simTime, walkSessionId]);
 
-  const handleStartNavigation = useCallback((route?: RoutePlanSummary, eva?: EVAPlanSummary) => {
+  const handleStartNavigation = useCallback((route?: RoutePlanSummary, eva?: EVAPlanSummary, accepted?: MissionProposal) => {
+    if(crewOpsRef.current.missionStart!==null&&crewOpsRef.current.completedAt===null)return;
+    const startCrew=accepted?.crew??crewOperations;
+    const startBudget=accepted?.budget??missionBudgetMinutes;
+    const startReserve=accepted?.reserve??reserveMinutes;
+    latestStatusRef.current=null;statusSequenceRef.current=0;
     const freshSessionId = Date.now();
     const activeRoute = route;
     if(!activeRoute?.success || activeRoute.points.length < 2) {setView('plan');return;}
-    const issues=preflight(activeRoute,crewOperations,missionBudgetMinutes,reserveMinutes).errors;if(issues.length){setMissionSaveError(issues.join(' '));setView('plan');return;}setMissionSaveError(null);
+    const issues=preflight(activeRoute,startCrew,startBudget,startReserve).errors;if(issues.length){setMissionSaveError(issues.join(' '));setView('plan');return;}setMissionSaveError(null);
     if (eva) setEvaPlan(eva);
     if (activeRoute?.success && activeRoute.points.length >= 2) {
       setPlannedRoute(activeRoute);
@@ -396,38 +457,80 @@ export default function App({initialMission}: {initialMission?: PersistedMission
       });
       setWalkSessionId(freshSessionId);
     }
-    setCrewOperations(current => ({...current,routeTasks:(current.routeTasks??makeRouteTasks(current.plannedStops??3,current.stopLimitMinutes)).map(t=>({...t,done:false})),study:activeRoute.destinationName==='Skinner Ridge'?'skinner-ridge':activeRoute.destinationName==='Wildcat Ridge'?'wildcat-ridge':'local',previousWalks:current.missionStart===null ? current.previousWalks : [...(current.previousWalks??[]),{name:current.name,destination:current.destination,started:current.missionStart,ended:current.completedAt??simTime,stops:finishStop(current,simTime).stops,finding:current.lastFinding,records:current.observationIds.length}],health:current.health??{},stops:[],observationIds:[],taskPhoto:false,taskNote:false,lastFinding:'',completedAt:null,missionStart:simTime,destination:activeRoute.destinationName || 'Selected destination'}));
+    setMissionBudgetMinutes(startBudget);setReserveMinutes(startReserve);
+    setCrewOperations(current => ({...current,...startCrew,healthReplay:null,demoVitals:oneWayDelayMinutes===0&&simulationSpeedMultiplier>1?{startedAt:simTime}:null,decisions:[],routeTasks:(startCrew.routeTasks??makeRouteTasks(startCrew.plannedStops??3,startCrew.stopLimitMinutes)).map(t=>({...t,done:false})),study:activeRoute.destinationName==='Skinner Ridge'?'skinner-ridge':activeRoute.destinationName==='Wildcat Ridge'?'wildcat-ridge':'local',previousWalks:current.previousWalks,health:startCrew.health??{},stops:[],observationIds:[],taskPhoto:false,taskNote:false,lastFinding:'',completedAt:null,missionStart:simTime,destination:activeRoute.destinationName || 'Selected destination'}));
+    setRestorePending(false);
     setMissionStartedAtSimTime(simTime);
     if(eva) setMissionBudgetMinutes(eva.totalDurationMinutes);
     if(eva) setReserveMinutes(eva.reserveMinutes);
-    setPlannedObservationMinutes(eva?.observationMinutes ?? (crewOperations.plannedStops??3)*crewOperations.stopLimitMinutes);
+    setPlannedObservationMinutes(eva?.observationMinutes ?? (startCrew.plannedStops??3)*startCrew.stopLimitMinutes);
     setStopStartedAtSimTime(null);
     setShowRestoreNotice(false);
     setSimulationPaused(false);
     setJourneyState('navigate');
-    setView('walk');
-  }, [simTime, crewOperations, missionBudgetMinutes, reserveMinutes]);
+    setView(role==='science_team'?'science':'walk');
+  }, [role, simTime, crewOperations, missionBudgetMinutes, reserveMinutes, oneWayDelayMinutes, simulationSpeedMultiplier]);
+
+  const planningLocked=missionStartedAtSimTime!==null||missionProposal?.status==='pending'||(missionProposal?.status==='completed'&&simTime<(missionProposal.responseAt??0));
+  useEffect(()=>{if(startRequested&&missionStartedAtSimTime!==null&&!restorePending){setView(role==='science_team'?'science':'walk');setStartRequested(false);}else if(startRequested&&missionProposal?.status!=='pending'&&missionProposal?.status!=='accepted')setStartRequested(false);},[startRequested,missionStartedAtSimTime,restorePending,missionProposal,role]);
+  const planLock=useRef(false);planLock.current=Boolean(planningLocked);
+  const sendPlan=(route:RoutePlanSummary,draft:typeof earthDraft)=>{if(planLock.current)return;planLock.current=true;setEarthDraft(draft);setMissionProposal({id:crypto.randomUUID(),route,crew:structuredClone(draft.crew),budget:draft.budget,reserve:draft.reserve,sentAt:simTime,arrivesAt:simTime+oneWayDelayMinutes*60,status:'pending'});};
+  const acceptPlan=(id?:string)=>{if(!missionProposal||id!==missionProposal.id||simTime<missionProposal.arrivesAt||missionStartedAtSimTime!==null||missionProposal.status!=='pending'||preflight(missionProposal.route,missionProposal.crew,missionProposal.budget,missionProposal.reserve).errors.length)return;handleStartNavigation(missionProposal.route,undefined,missionProposal);setMissionProposal({...missionProposal,status:'accepted',responseAt:simTime+oneWayDelayMinutes*60});};
+  const requestPlan=(id:string|undefined,note:string)=>{if(missionProposal&&id===missionProposal.id)setMissionProposal({...missionProposal,status:'changes',note,responseAt:simTime+oneWayDelayMinutes*60});};
+  const resumeSaved=()=>{setRestorePending(false);setSimulationPaused(false);};
+  const setHealthReplay=(memberId:string|null)=>{if(oneWayDelayMinutes===0&&simulationSpeedMultiplier>1)return;if(crewOpsRef.current.missionStart===null||crewOpsRef.current.completedAt!==null)return;if(memberId!==null&&memberId!=='lead'&&!crewOpsRef.current.members?.some(m=>m.id===memberId))return;handleCrewChange({...crewOpsRef.current,demoVitals:null,healthReplay:memberId?{memberId,startedAt:simTime,record:'bidmc01'}:null});};
+  const setMode=(delay:number,speed:number)=>{
+    const nextDelay=delay===5?5:0,nextSpeed=nextDelay>0?1:([1,5,10].includes(speed)?speed:1);
+    setOneWayDelayMinutes(nextDelay);setSimulationSpeedMultiplier(nextSpeed);
+    setCrewOperations(current=>current.missionStart===null||current.completedAt!==null?current:{...current,demoVitals:nextDelay===0&&nextSpeed>1?(current.demoVitals??{startedAt:simTime}):null,healthReplay:null});
+  };
+  commandHandler.current=command=>{
+    if(['crew','investigate','walkMode','end','return','evidence','healthReplay'].includes(command.kind)&&command.sessionId!==undefined&&command.sessionId!==walkSessionId)return;
+    const q=command.payload as Record<string,unknown>;
+    switch(command.kind){
+      case 'draft':if(!planLock.current)setEarthDraft(d=>({...d,...q}));break;
+      case 'sendPlan':sendPlan(q.route as RoutePlanSummary,q.draft as typeof earthDraft);break;
+      case 'accept':acceptPlan(q.id as string);break;
+      case 'request':requestPlan(q.id as string,q.note as string);break;
+      case 'evidence':setCrewOperations(c=>recordEvidence(c,q.observation as ObservationRecord,Boolean(q.atDestination)));break;
+      case 'crew':handleCrewChange(command.payload as CrewOperations);break;
+      case 'investigate':handleInvestigation(Boolean(command.payload));setSurfacePose(p=>({...p,movementMode:command.payload?'investigating':'following'}));break;
+      case 'walkMode':setSurfacePose(p=>({...p,movementMode:q.mode as SurfacePose['movementMode']}));setSimulationPaused(false);break;
+      case 'end':void handleEndMission();break;
+      case 'return':handleStartReturnRoute(q.route as RoutePlanSummary,q.pose as SurfacePose);break;
+      case 'resumeSaved':resumeSaved();break;
+      case 'healthReplay':setHealthReplay(q.memberId as string|null);break;
+      case 'mode':setMode(Number(q.delay),Number(q.speed));break;
+    }
+  };
+
+  const controlActive=missionStartedAtSimTime!==null&&!restorePending;
+  useEffect(()=>{if(view==='science'&&!controlActive)setView(missionProposal?.status==='completed'?'missions':'plan');},[view,controlActive,missionProposal?.status]);
+  const chatStatus=role==='science_team'
+    ?getLatestMissionActivity(getDeliveredMissionActivity(messages,simTime,`jezero-traverse-${walkSessionId}`))?.statusSnapshot??null
+    :latestStatusRef.current?{...latestStatusRef.current,planVersion,position:surfacePose,operations:operationsReport(crewOperations,simTime),destinationName:plannedRoute?.destinationName??crewOperations.destination,missionId:`jezero-traverse-${walkSessionId}`}:null;
 
   return (
     <div data-ui-system="field" className="app-shell flex h-screen w-screen flex-col overflow-hidden bg-[var(--surface)] font-sans text-[var(--text-primary)] antialiased">
       {<Header
         currentView={view}
-        onNavigate={(next) => { if(next === 'notebook') setFieldPanelOpen(open => !open); else {setFieldPanelOpen(false);if(next === 'walk' && (missionStartedAtSimTime === null || !plannedRoute?.success)) setView('plan'); else setView(next);} }}
+        onNavigate={(next) => { if(next === 'notebook') {setChatOpen(false);if(role==='explorer')setFieldPanelOpen(open => !open);else setView('missions');} else {setFieldPanelOpen(false);if(next === 'walk' && (restorePending || missionStartedAtSimTime === null || !plannedRoute?.success)) setView('plan'); else setView(next==='science'&&!controlActive?'plan':next);} }}
         role={role}
         onChangeRole={(newRole) => {
           setFieldPanelOpen(false);
           setRole(newRole);
-          setView(newRole === 'science_team' ? 'science' : missionStartedAtSimTime === null ? 'plan' : 'walk');
+          setView(newRole === 'science_team' ? (missionStartedAtSimTime!==null&&!restorePending?'science':'globe') : missionStartedAtSimTime === null || restorePending ? 'plan' : 'walk');
         }}
         simTime={simTime}
-        missionActive={missionStartedAtSimTime !== null}
+        missionActive={missionStartedAtSimTime !== null && !restorePending}
+        missionReady={Boolean(missionProposal?.status==='pending'&&simTime>=missionProposal.arrivesAt&&!restorePending)}
         oneWayDelayMinutes={oneWayDelayMinutes}
         onAdvanceSimTime={handleAdvanceSimTime}
         simulationPaused={simulationPaused}
         onToggleSimulation={handleToggleSimulation}
-        onSetOneWayDelayMinutes={setOneWayDelayMinutes}
-        simulationSpeedMultiplier={simulationSpeedMultiplier}
-        onSetSimulationSpeedMultiplier={setSimulationSpeedMultiplier}
+        onSetOneWayDelayMinutes={delay=>invoke('mode',{delay,speed:1},()=>setMode(delay,1))}
+        simulationSpeedMultiplier={effectiveSpeed}
+        onSetSimulationSpeedMultiplier={speed=>invoke('mode',{delay:0,speed},()=>setMode(0,speed))}
         statusUpdateIntervalSeconds={statusUpdateIntervalSeconds}
         onSetStatusUpdateIntervalSeconds={setStatusUpdateIntervalSeconds}
       />}
@@ -435,7 +538,9 @@ export default function App({initialMission}: {initialMission?: PersistedMission
       {/* 
         MAIN CONTENT VIEW CONTAINER
       */}
+      {syncError&&<div role="alert" className="field-warning">Connection interrupted · retrying</div>}
       {(missionSaveError || storageBootstrapError) && <div role="alert" className="border-b border-amber-300 bg-amber-50 px-5 py-2 text-sm">{missionSaveError || storageBootstrapError} · Keep the database server running. <button className="underline" onClick={() => window.location.reload()}>Retry connection</button></div>}
+      
       <main className="app-view relative flex-1 w-full overflow-hidden">
         {showRestoreNotice && view === 'walk' && (
           <div className="absolute inset-x-3 top-2 z-[80] mx-auto flex max-w-2xl items-center justify-between gap-3 border border-[var(--border)] bg-[var(--panel)] px-4 py-3 text-[14px] shadow-sm">
@@ -445,15 +550,28 @@ export default function App({initialMission}: {initialMission?: PersistedMission
             </button>
           </div>
         )}
+        {view==='missions'&&<MissionLog entries={crewOperations.previousWalks??[]} now={simTime} earth={role==='science_team'} onPlan={()=>setView('plan')}/>}
         {/* VIEW 1: PLAN SCREEN (2D Primary Fieldwork Map) */}
-        {view === 'plan' && (
-          <NamedSitePlanner crew={crewOperations} onCrew={setCrewOperations} now={simTime} onBudget={setMissionBudgetMinutes} onReserve={setReserveMinutes} reserve={reserveMinutes} earth={role==='science_team'} budget={missionBudgetMinutes} onStart={route=>{handleStartNavigation(route);if(role==='science_team')setView('science');}}/>
+        {(view === 'plan'||view==='walk'&&(missionStartedAtSimTime===null||restorePending)) && (
+          role==='science_team'?<NamedSitePlanner
+            readOnly={Boolean(planningLocked)} lockedRoute={planningLocked?(missionProposal?.route??plannedRoute):null}
+            crew={planningLocked?(missionProposal?.crew??earthDraft.crew):earthDraft.crew}
+            onCrew={crew=>invoke('draft',{crew},()=>setEarthDraft(d=>({...d,crew})))} now={simTime}
+            onBudget={budget=>invoke('draft',{budget},()=>setEarthDraft(d=>({...d,budget})))}
+            onReserve={reserve=>invoke('draft',{reserve},()=>setEarthDraft(d=>({...d,reserve})))}
+            reserve={planningLocked?(missionProposal?.reserve??earthDraft.reserve):earthDraft.reserve}
+            earth budget={planningLocked?(missionProposal?.budget??earthDraft.budget):earthDraft.budget}
+            onStart={route=>invoke('sendPlan',{route,draft:earthDraft},()=>sendPlan(route,earthDraft))}
+            actionSlot={<><button type="button" className="primary-button" onClick={()=>{setRole('explorer');setView('plan');}}>Open Mars crew</button>{controlActive&&<button type="button" onClick={()=>setView('science')}>Mission control</button>}</>}
+            receipt={planningLocked?<div className="proposal-receipt" role="status"><strong>{missionStartedAtSimTime!==null?'Mission in progress':missionProposal?.status==='completed'?'Final report in transit':simTime<(missionProposal?.arrivesAt??0)?'Plan in transit':'Sent · ready for crew review'}</strong><p>{missionStartedAtSimTime!==null?'Current plan · next mission after this walk ends.':missionProposal?.status==='completed'?'New planning opens when the final report arrives.':'Switch to Mars crew to review tasks and start.'}</p></div>:missionProposal?.status==='changes'?<div className="proposal-receipt">Changes requested: {missionProposal.note}</div>:null}
+          />:<MissionReview starting={startRequested} savedWalk={restorePending} onResumeSaved={()=>{invoke('resumeSaved',null,resumeSaved);setView('walk');}} onEndSaved={()=>{invoke('end',null,()=>{void handleEndMission();});setView('missions');}} proposal={missionProposal} now={simTime} active={missionStartedAtSimTime!==null} onOpenEarth={()=>{setRole('science_team');setView('plan');}} onReturn={()=>setView('walk')} onAccept={()=>{setStartRequested(true);invoke('accept',{id:missionProposal?.id},()=>acceptPlan(missionProposal?.id));}} onRequest={note=>invoke('request',{id:missionProposal?.id,note},()=>requestPlan(missionProposal?.id,note))}/>
+
         )}
 
         {/* VIEW 2: WALK AND INSPECT (3D Terrain Walk) */}
-        {(view === 'walk' || missionStartedAtSimTime !== null) && (
+        {!restorePending && missionStartedAtSimTime !== null && (
           <div className={view === 'walk' ? 'absolute inset-0' : 'hidden'} aria-hidden={view !== 'walk'}>
-          {plannedRoute && <FieldWalk key={`${walkSessionId}:${plannedRoute.id}`} route={plannedRoute} initialPose={surfacePose} simTime={simTime} session={walkSessionId} paused={simulationPaused} active={missionStartedAtSimTime!==null} visible={view==='walk'} crew={crewOperations} elapsed={missionStartedAtSimTime===null?0:simTime-missionStartedAtSimTime} budget={missionBudgetMinutes} reserve={reserveMinutes} delay={oneWayDelayMinutes} interval={oneWayDelayMinutes===0?1:statusUpdateIntervalSeconds} planVersion={planVersion} onPose={setSurfacePose} onJourney={handleJourneyStateChange} onInvestigate={handleInvestigation} onCrew={setCrewOperations} onResume={()=>setSimulationPaused(false)} onReturn={handleStartReturnRoute} onEnd={()=>{void handleEndMission();setView('plan');}} onSave={handleSaveWalkObservation} onReport={handleSendMissionStatus}/>}
+          {plannedRoute && <FieldWalk onOpenLog={()=>{setChatOpen(false);setFieldPanelOpen(v=>!v);}} observations={observations} key={`${walkSessionId}:${plannedRoute.id}`} route={plannedRoute} initialPose={surfacePose} simTime={simTime} session={walkSessionId} paused={simulationPaused} remote={!controller} active={missionStartedAtSimTime!==null&&controller} visible={view==='walk'} crew={oneWayDelayMinutes>0?{...crewOperations,walkSpeedFactor:1}:crewOperations} elapsed={missionStartedAtSimTime===null?0:simTime-missionStartedAtSimTime} budget={missionBudgetMinutes} reserve={reserveMinutes} delay={oneWayDelayMinutes} interval={oneWayDelayMinutes===0?1:statusUpdateIntervalSeconds} planVersion={planVersion} onPose={p=>invoke('walkMode',{mode:p.movementMode},()=>setSurfacePose(p))} onJourney={handleJourneyStateChange} onInvestigate={active=>invoke('investigate',active,()=>handleInvestigation(active))} onCrew={c=>invoke('crew',c,()=>handleCrewChange(c))} onResume={()=>invoke('walkMode',{mode:'following'},()=>setSimulationPaused(false))} onReturn={(route,pose)=>invoke('return',{route,pose},()=>handleStartReturnRoute(route,pose))} onEnd={()=>{invoke('end',null,()=>{void handleEndMission();});setView('missions');}} onSave={handleSaveWalkObservation} onReport={handleSendMissionStatus}/>}
 
           </div>
         )}
@@ -465,7 +583,7 @@ export default function App({initialMission}: {initialMission?: PersistedMission
             currentPlanSummary={planSummaryText}
             simTime={simTime}
             simulationPaused={simulationPaused}
-            missionActive={missionStartedAtSimTime !== null}
+            missionActive={missionStartedAtSimTime !== null && !restorePending}
             oneWayDelayMinutes={oneWayDelayMinutes}
             onAdvanceSimTime={handleAdvanceSimTime}
             onSwitchToScienceTeamView={() => {
@@ -476,27 +594,28 @@ export default function App({initialMission}: {initialMission?: PersistedMission
         )}
 
         {/* VIEW 4: DELAYED EARTH SCIENCE TEAM MONITOR */}
-        {view === 'science' && role === 'science_team' && (
+        {view === 'science' && role === 'science_team' && controlActive && (
           <EarthTeamMonitoring
+          onHealthReplay={memberId=>invoke('healthReplay',{memberId},()=>setHealthReplay(memberId))}
           messages={messages}
           plannedRoute={plannedRoute}
           simTime={simTime}
             simulationPaused={simulationPaused}
-            missionActive={missionStartedAtSimTime !== null}
+            missionActive={missionStartedAtSimTime !== null && !restorePending}
             oneWayDelayMinutes={oneWayDelayMinutes}
-          simulationSpeedMultiplier={simulationSpeedMultiplier}
+          simulationSpeedMultiplier={effectiveSpeed}
           statusUpdateIntervalSeconds={statusUpdateIntervalSeconds}
-          missionName="Jezero traverse 01"
+          missionName={plannedRoute?.destinationName?`${plannedRoute.destinationName} traverse`:'Mission support'}
           missionId={`jezero-traverse-${walkSessionId}`}
           isLocalOnly
           onChangeRole={(newRole) => {
             setFieldPanelOpen(false);
           setRole(newRole);
-            setView(newRole === 'science_team' ? 'science' : missionStartedAtSimTime === null ? 'plan' : 'walk');
+            setView(newRole === 'science_team' ? (missionStartedAtSimTime!==null&&!restorePending?'science':'globe') : missionStartedAtSimTime === null || restorePending ? 'plan' : 'walk');
           }}
           onToggleSimulation={handleToggleSimulation}
-          onSetOneWayDelayMinutes={setOneWayDelayMinutes}
-          onSetSimulationSpeedMultiplier={setSimulationSpeedMultiplier}
+          onSetOneWayDelayMinutes={delay=>invoke('mode',{delay,speed:1},()=>setMode(delay,1))}
+          onSetSimulationSpeedMultiplier={speed=>invoke('mode',{delay:0,speed},()=>setMode(0,speed))}
           onAdvanceSimTime={handleAdvanceSimTime}
           onReloadMessages={handleReloadComms}
           />
@@ -522,8 +641,9 @@ export default function App({initialMission}: {initialMission?: PersistedMission
             onBackToPlan={() => setView('plan')}
           />
         )}
-        {fieldPanelOpen && role === 'explorer' && <CrewFieldPanel onClose={() => setFieldPanelOpen(false)} observations={observations} messages={messages} tasks={tasks} simTime={simTime} delay={oneWayDelayMinutes} paused={simulationPaused} reload={handleReloadComms}/>}
+        {fieldPanelOpen && role === 'explorer' && <CrewFieldPanel entries={crewOperations.previousWalks} onClose={() => setFieldPanelOpen(false)} observations={observations} messages={messages} tasks={tasks} simTime={simTime} delay={oneWayDelayMinutes} paused={simulationPaused} reload={handleReloadComms}/>}
       </main>
+      <FloatingChat messages={messages} side={role==='explorer'?'mars':'earth'} now={simTime} delay={oneWayDelayMinutes} paused={simulationPaused} open={chatOpen} onOpenChange={open=>{setChatOpen(open);if(open)setFieldPanelOpen(false);}} reload={handleReloadComms} currentStatus={chatStatus}/>
     </div>
   );
 }

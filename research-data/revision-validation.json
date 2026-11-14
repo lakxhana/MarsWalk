@@ -1,0 +1,164 @@
+{
+  "description": "Automated calculation and component checks. Not suited human performance or browser validation.",
+  "exhaustivePolicyComparisons": 120,
+  "illustrativeInput": {
+    "outwardMinutes": 10,
+    "returnMinutes": 10,
+    "budgetMinutes": 43,
+    "oxygenMinutes": 90,
+    "reserveMinutes": 10,
+    "oxygenReserveMinutes": 15,
+    "tasks": [
+      {
+        "id": "a",
+        "title": "Context photo",
+        "fraction": 0.2,
+        "minutes": 4,
+        "priority": 2,
+        "done": false
+      },
+      {
+        "id": "b",
+        "title": "Layer study",
+        "fraction": 0.6,
+        "minutes": 6,
+        "priority": 5,
+        "done": false
+      },
+      {
+        "id": "c",
+        "title": "Destination record",
+        "fraction": 1,
+        "minutes": 5,
+        "priority": 3,
+        "done": false
+      }
+    ]
+  },
+  "extraInvestigationMinutes": 5,
+  "illustrativeResult": {
+    "valid": true,
+    "feasible": true,
+    "tasks": [
+      {
+        "id": "a",
+        "title": "Context photo",
+        "fraction": 0.2,
+        "minutes": 4,
+        "priority": 2,
+        "done": false
+      },
+      {
+        "id": "b",
+        "title": "Layer study",
+        "fraction": 0.6,
+        "minutes": 6,
+        "priority": 5,
+        "done": false
+      },
+      {
+        "id": "c",
+        "title": "Destination record",
+        "fraction": 1,
+        "minutes": 5,
+        "priority": 3,
+        "done": false
+      }
+    ],
+    "outward": 10,
+    "back": 10,
+    "extraMinutes": 5,
+    "capacityMinutes": 8,
+    "shortfall": 0,
+    "originalDemand": 40,
+    "originalOverrun": 7,
+    "all": {
+      "ids": [
+        "a",
+        "b",
+        "c"
+      ],
+      "skipped": [],
+      "score": 10,
+      "observeMinutes": 15,
+      "returnAtMinutes": 40,
+      "missionMargin": -7,
+      "oxygenAtReturn": 50,
+      "oxygenMargin": 35
+    },
+    "fixed": {
+      "ids": [
+        "a"
+      ],
+      "skipped": [
+        {
+          "id": "b",
+          "title": "Layer study",
+          "fraction": 0.6,
+          "minutes": 6,
+          "priority": 5,
+          "done": false
+        },
+        {
+          "id": "c",
+          "title": "Destination record",
+          "fraction": 1,
+          "minutes": 5,
+          "priority": 3,
+          "done": false
+        }
+      ],
+      "score": 2,
+      "observeMinutes": 4,
+      "returnAtMinutes": 29,
+      "missionMargin": 4,
+      "oxygenAtReturn": 61,
+      "oxygenMargin": 46
+    },
+    "adaptive": {
+      "ids": [
+        "b"
+      ],
+      "skipped": [
+        {
+          "id": "a",
+          "title": "Context photo",
+          "fraction": 0.2,
+          "minutes": 4,
+          "priority": 2,
+          "done": false
+        },
+        {
+          "id": "c",
+          "title": "Destination record",
+          "fraction": 1,
+          "minutes": 5,
+          "priority": 3,
+          "done": false
+        }
+      ],
+      "score": 5,
+      "observeMinutes": 6,
+      "returnAtMinutes": 31,
+      "missionMargin": 2,
+      "oxygenAtReturn": 59,
+      "oxygenMargin": 44
+    }
+  },
+  "routeRendering": {
+    "route": "nasa-skinner-ridge-wildcat-ridge",
+    "rayChecks": 59,
+    "minimumTriangleClearanceMetres": 0.1782476107170723,
+    "allNamedRouteTriangleSamples": 160304,
+    "minimumAllRouteClearance": 0.1661234312721831
+  },
+  "advice": {
+    "reportCapture": 100,
+    "stopDeadline": 400,
+    "sendTime": 200,
+    "oneWayDelayMinutes": 5,
+    "calculatedArrival": 500,
+    "flaggedLate": true
+  },
+  "passed": true
+}

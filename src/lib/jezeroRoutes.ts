@@ -24,11 +24,11 @@ export function namedRoute(startId:string,endId:string):RoutePlanSummary|null {
  for(const c of coords){const p=lonLatToCropMeters(c[0],c[1]);const prev=points[points.length-1];const step=prev?Math.hypot(p.x-prev.x,p.z-prev.z):0;if(prev&&step<0.05)continue;distance+=step;points.push({...p,elevation:c[2],distanceFromStart:distance,segmentSlopeDeg:0,slopeDeg:0});}
  const elevations=points.map(p=>p.elevation);return {id:`nasa-${a.id}-${b.id}`,mapMode:'regional',destinationName:b.name,startName:a.name,success:true,points,totalDistanceMeters:distance,totalSurfaceDistanceMeters:distance,elevationGainMeters:0,elevationLossMeters:0,startElevationMeters:elevations[0],endElevationMeters:elevations[elevations.length-1],minElevationMeters:Math.min(...elevations),maxElevationMeters:Math.max(...elevations),averageSlopePercent:0,averageSlopeDeg:0,maxSlopeDeg:0,estimatedTimeMinutes:Math.ceil(distance/1.1/60),assumedSpeedMps:1.1,maxAllowableSlopeDeg:0,explanation:'NASA recorded rover traverse; crew movement is simulated. Human traversability and slope safety are not assessed.',hasAlternative:false,slopeProfile:{gentlePct:0,moderatePct:0,steepPct:0}};
 }
-export function sampleRoute(route:RoutePlanSummary,distance:number) {
+export function sampleRoute(route:import('./routePlanner').WalkRenderRoute,distance:number) {
  const d=Math.max(0,Math.min(distance,route.totalDistanceMeters));let i=1;
  while(i<route.points.length-1&&route.points[i].distanceFromStart<d)i++;
  const a=route.points[i-1],b=route.points[i];const length=b.distanceFromStart-a.distanceFromStart;const t=length>0?(d-a.distanceFromStart)/length:0;
- return {x:a.x+(b.x-a.x)*t,z:a.z+(b.z-a.z)*t,yaw:Math.atan2(-(b.x-a.x),-(b.z-a.z)),pitch:0,elevation:a.elevation+(b.elevation-a.elevation)*t,routeDist:d,nextWpIndex:i,routeId:route.id};
+ return {x:a.x+(b.x-a.x)*t,z:a.z+(b.z-a.z)*t,yaw:Math.atan2(-(b.x-a.x),-(b.z-a.z)),pitch:0,elevation:(a.elevation??NaN)+((b.elevation??NaN)-(a.elevation??NaN))*t,routeDist:d,nextWpIndex:i,routeId:route.id};
 }
 export function reverseRoute(route:RoutePlanSummary,distance=route.totalDistanceMeters):RoutePlanSummary {
  const p=sampleRoute(route,distance);const points=[{...p,distanceFromStart:0,segmentSlopeDeg:0,slopeDeg:0},...route.points.filter(q=>q.distanceFromStart<distance).reverse()];let total=0;

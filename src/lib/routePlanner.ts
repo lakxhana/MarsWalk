@@ -63,6 +63,8 @@ export interface RoutePlanSummary {
   };
 }
 
+export type WalkRenderRoute = Pick<RoutePlanSummary,'id'|'mapMode'|'totalDistanceMeters'> & {points:Array<{x:number;z:number;distanceFromStart:number;elevation?:number}>};
+
 export interface PathExclusion {
   id?: string;
   name?: string;

@@ -40,9 +40,110 @@ export interface ManifestEntry {
 }
 
 export const DATA_MANIFEST: ManifestEntry[] = [
+{
+  "category": "derived",
+  "categoryLabel": "Bundled regional data",
+  "sourceOrganization": "NASA / JPL / USGS / University of Arizona",
+  "observationDateRange": "Historical mission products; exact acquisition dates not retained in these crop metadata",
+  "spatialCoverage": {
+    "crs": "Planetocentric latitude / positive-east longitude",
+    "longitudeConvention": "Positive east",
+    "elevationDatum": "MOLA topography / delta geoid (source product)",
+    "bounds": "77.3876953125 to 77.464599609375 E; 18.424072265625 to 18.47900390625 N"
+  },
+  "resolution": {
+    "spatial": "See bundled metadata; sampled products are coarser than their sources"
+  },
+  "unitsAndConventions": {
+    "horizontalUnits": "degrees / local metres",
+    "verticalUnits": "metres",
+    "temperatureUnits": "N/A",
+    "missingDataConvention": "Elevation nulls remain unavailable"
+  },
+  "verificationStatus": "calibrated",
+  "id": "jezero-west-active",
+  "name": "Western Jezero elevation \u2014 current walk",
+  "productIdentifier": "JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40",
+  "officialSourceUrl": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/mars2020_trn/HiRISE/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40.tif",
+  "processingPipeline": [
+    "Source raster resampled to bundled 385 x 257 cell-centred grid.",
+    "westElevation() bilinearly interpolates valid neighbours."
+  ],
+  "knownLimitations": [
+    "Approximate 11\u201313 m bundled spacing; original 1 m name is not the displayed sampling.",
+    "Render reconstruction, not ground photography or certified traversability."
+  ]
+},
+{
+  "category": "derived",
+  "categoryLabel": "Bundled regional data",
+  "sourceOrganization": "NASA / JPL / USGS / University of Arizona",
+  "observationDateRange": "Historical mission products; exact acquisition dates not retained in these crop metadata",
+  "spatialCoverage": {
+    "crs": "Planetocentric latitude / positive-east longitude",
+    "longitudeConvention": "Positive east",
+    "elevationDatum": "MOLA topography / delta geoid (source product)",
+    "bounds": "77.3876953125 to 77.464599609375 E; 18.424072265625 to 18.47900390625 N"
+  },
+  "resolution": {
+    "spatial": "See bundled metadata; sampled products are coarser than their sources"
+  },
+  "unitsAndConventions": {
+    "horizontalUnits": "degrees / local metres",
+    "verticalUnits": "metres",
+    "temperatureUnits": "N/A",
+    "missingDataConvention": "Elevation nulls remain unavailable"
+  },
+  "verificationStatus": "calibrated",
+  "id": "jezero-imagery-active",
+  "name": "Western Jezero imagery \u2014 current map/walk",
+  "productIdentifier": "JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first_dd",
+  "officialSourceUrl": "https://trek.nasa.gov/tiles/Mars/EQ/JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first_dd",
+  "processingPipeline": [
+    "Bundled zoom-14 regional image and zoom-17 delta detail.",
+    "Maps and 3D terrain share geographic bounds."
+  ],
+  "knownLimitations": [
+    "The layer name does not mean both delivered images are 25 cm per pixel."
+  ]
+},
+{
+  "category": "derived",
+  "categoryLabel": "Bundled regional data",
+  "sourceOrganization": "NASA / JPL / USGS / University of Arizona",
+  "observationDateRange": "Historical mission products; exact acquisition dates not retained in these crop metadata",
+  "spatialCoverage": {
+    "crs": "Planetocentric latitude / positive-east longitude",
+    "longitudeConvention": "Positive east",
+    "elevationDatum": "MOLA topography / delta geoid (source product)",
+    "bounds": "77.3876953125 to 77.464599609375 E; 18.424072265625 to 18.47900390625 N"
+  },
+  "resolution": {
+    "spatial": "See bundled metadata; sampled products are coarser than their sources"
+  },
+  "unitsAndConventions": {
+    "horizontalUnits": "degrees / local metres",
+    "verticalUnits": "metres",
+    "temperatureUnits": "N/A",
+    "missingDataConvention": "Elevation nulls remain unavailable"
+  },
+  "verificationStatus": "calibrated",
+  "id": "jezero-traverse-active",
+  "name": "Perseverance named sites and recorded traverse",
+  "productIdentifier": "M20_waypoints.json / M20_traverse.json",
+  "officialSourceUrl": "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_traverse.json",
+  "processingPipeline": [
+    "Named-site coordinates and connecting rover segments bundled in jezeroNamedData.json.",
+    "namedRoute() sums horizontal segment distances."
+  ],
+  "knownLimitations": [
+    "Recorded rover travel, not a validated astronaut route.",
+    "Pins identify rover positions; task locations and durations are scenario settings."
+  ]
+},
   {
     id: 'hirise-dtm',
-    name: 'HiRISE Stereo Digital Terrain Model',
+    name: 'Legacy east-crop HiRISE Digital Terrain Model',
     category: 'derived',
     categoryLabel: 'Derived Elevation Data',
     productIdentifier: 'DTEEC_048842_1985_048908_1985_U01',
@@ -68,7 +169,7 @@ export const DATA_MANIFEST: ManifestEntry[] = [
     processingPipeline: [
       '1. A 2560 × 2560 crop is sampled from the original DTM using the paired HiRISE product projection offsets.',
       '2. Samples every 8 source pixels are bundled as a 321 × 321 Float32 grid.',
-      '3. Navigation uses bilinear elevation interpolation and measured-grid slope calculations.',
+      '3. Used by older crop-based terrain utilities; current named-site walking uses the separate western Jezero grid.',
     ],
     knownLimitations: [
       'Navigation uses the bundled ~8.08 m posting grid; it does not resolve features smaller than that sampling interval.',
@@ -78,7 +179,7 @@ export const DATA_MANIFEST: ManifestEntry[] = [
   },
   {
     id: 'mro-hirise-ortho',
-    name: 'HiRISE Orthoimage Crop',
+    name: 'Legacy east-crop HiRISE Orthoimage',
     category: 'observed',
     categoryLabel: 'Orbital Imagery',
     productIdentifier: 'ESP_048908_1985_RED_C_01_ORTHO',
@@ -134,7 +235,7 @@ export const DATA_MANIFEST: ManifestEntry[] = [
     unitsAndConventions: {
       horizontalUnits: 'Rover Site/Drive & geographic coordinates',
       verticalUnits: 'Mast elevation (+1.45 m) and front chassis (+0.85 m)',
-      temperatureUnits: 'Native: Kelvin (K). Display: Converted strictly as °C = K - 273.15.',
+      temperatureUnits: 'Bundled daily min/max already in degrees Celsius; no conversion or prediction.',
       missingDataConvention: 'Null / NaN preserved; never interpolated or synthesized',
     },
     processingPipeline: [
@@ -161,13 +262,13 @@ export const DATA_MANIFEST: ManifestEntry[] = [
       bounds: 'Global: 90° S to 90° N, 180° W to 180° E',
     },
     resolution: {
-      spatial: '~232 m/pixel (Zoom 2 stitched 2048 × 1024 canvas)',
+      spatial: 'Source product nominal 232 m/pixel; displayed zoom-3 texture is 4096 × 2048 pixels, much coarser.',
     },
     unitsAndConventions: {
       horizontalUnits: 'Degrees',
       verticalUnits: 'N/A',
       temperatureUnits: 'N/A',
-      missingDataConvention: 'Stitched seamlessly across 32 tiles',
+      missingDataConvention: '128 tiles; any failed tile causes an explicit load error',
     },
     processingPipeline: [
       '1. Dynamic HTTP tile fetching from NASA Mars Trek WMTS.',
@@ -175,45 +276,22 @@ export const DATA_MANIFEST: ManifestEntry[] = [
       '3. Generation of THREE.CanvasTexture with sRGB color space.',
     ],
     knownLimitations: [
-      'Global resolution (~232 m/px) provides planetary overview only. Regional high-resolution navigation switches to HiRISE dataset.',
+      'Displayed global texture is for overview only; source nominal resolution is not the displayed resolution.',
     ],
     verificationStatus: 'verified_active',
   },
   {
-    id: 'astronaut-kinematics',
-    name: 'Simulated Traverse Planner & Locomotion Model',
-    category: 'simulated',
-    categoryLabel: 'Simulated Astronaut Movement & Constraints',
-    productIdentifier: 'marswalk_internal_kinematics_v2',
-    officialSourceUrl: 'Internal Algorithm (Documented Tobler/Langmuir Adaptation)',
-    sourceOrganization: 'MARSWALK Project Architecture',
-    observationDateRange: 'Prototype Simulation (2025–2026)',
-    spatialCoverage: {
-      crs: 'Crop-local Cartesian frame (East/South meters)',
-      longitudeConvention: 'HiRISE crop projection; local origin at crop center',
-      elevationDatum: 'Measured HiRISE DTM, MOLA reference areoid',
-      bounds: '2584.74 m × 2584.74 m image/DTM crop footprint; usable coverage is smaller where imagery gaps are masked',
-    },
-    resolution: {
-      spatial: 'Continuous coordinate interpolation with 12 m waypoint filtering',
-      temporal: '60 FPS walking animation and raycast terrain clamping',
-    },
-    unitsAndConventions: {
-      horizontalUnits: 'Meters (m)',
-      verticalUnits: 'Meters (m)',
-      temperatureUnits: 'N/A',
-      missingDataConvention: 'Cells beyond footprint or missing data are impassable',
-    },
-    processingPipeline: [
-      '1. Interactive start/destination selection inside mapped image and elevation coverage.',
-      '2. A* graph pathfinding with configurable slope threshold (10°–25°, default 15°).',
-      '3. Walking speed estimated using Martian gravity (0.38g) suited Tobler formula (base speed: 1.1 m/s).',
-      '4. First-person Three.js navigation with authentic eye height (1.75 m).',
-    ],
-    knownLimitations: [
-      'All traversal limits and times are PROTOTYPE ASSUMPTIONS, not validated NASA astronaut mission rules.',
-      'EVA life support consumables (O2, battery, metabolic rate) are not modeled.',
-    ],
+    id: 'astronaut-kinematics', name: 'Named-route walking and resource estimates',
+    category: 'simulated', categoryLabel: 'Scenario model',
+    productIdentifier: 'MARSWalk namedRoute / preflight / FieldWalk',
+    officialSourceUrl: 'https://ntrs.nasa.gov/api/citations/20210024855/downloads/BVAD_2.15.22-final.pdf#page=149',
+    sourceOrganization: 'MARSWalk; metabolic baseline from NASA BVAD Rev2 Table 4-70',
+    observationDateRange: 'Simulation; no astronaut observations',
+    spatialCoverage: {crs: 'Existing crop-local affine frame', longitudeConvention: 'Positive east', elevationDatum: 'Regional source DTM', bounds: 'Named rover traverse subset'},
+    resolution: {spatial: 'Recorded path interpolated for animation', temporal: 'Shared simulation clock'},
+    unitsAndConventions: {horizontalUnits: 'm; speed 1.1 m/s assumed', verticalUnits: 'm', temperatureUnits: 'Historical Celsius range displayed independently', missingDataConvention: 'Unknown health readings are not invented'},
+    processingPipeline: ['Sum recorded horizontal path segments.', 'Travel = distance / assumed speed; add tasks, return and reserve.', 'Oxygen mass estimate = configured g/h times hours. Default metabolic baseline 86 g/h; extra losses default zero.', 'Messages and reports appear after configured delivery time.'],
+    knownLimitations: ['No validated human terrain suitability or slope-based speed on named routes.', 'Endurance-based supply is simulated, not measured tank contents; no certified tank-fill calculation.', 'Historical temperature, manual health inputs and selected communication delay are not live Mars sensors.', 'See DATA-AND-CALCULATIONS.md for equations, implementation pointers and the existing return-leg HUD estimate limitation.'],
     verificationStatus: 'prototype_assumed',
   },
 ];

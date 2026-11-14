@@ -1,7 +1,12 @@
+import EarthFirstPerson from './EarthFirstPerson';
+import SurfaceReadout from './SurfaceReadout';
+import SuitMonitor from './SuitMonitor';
+import PlanComparison from './PlanComparison';
+import AdvicePreview from './AdvicePreview';
+import {adviceFromReport} from '@/lib/adviceTiming';
 import RegionalMap from './RegionalMap';
 import type {RoutePlanSummary} from '@/lib/routePlanner';
 import { OperationsReceived } from './CrewOperationsPanel';
-import MissionConversation from './MissionConversation';
 import { cropMetersToLonLat } from '@/lib/jezeroHiRISE';
 import { useMemo, useState } from 'react';
 import { Compass, Send } from 'lucide-react';
@@ -40,6 +45,7 @@ interface EarthTeamMonitoringProps {
   onSetSimulationSpeedMultiplier: (multiplier: number) => void;
   onAdvanceSimTime: (seconds: number) => void;
   onReloadMessages: () => Promise<void>;
+  onHealthReplay?: (memberId: string | null) => void;
 }
 
 function getPacketTime(message: CommMessage): number {
@@ -63,7 +69,9 @@ function EarthMissionMap({
   history,
   highlightedPosition,
   waitingText,
+  onOpen,
 }: {
+  onOpen?:()=>void;
   waitingText: string;
   status: MissionStatusSnapshot | null;
   history: CommMessage[];
@@ -105,6 +113,7 @@ function EarthMissionMap({
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden bg-[#e6e5e0]">
       <svg
+        onClick={onOpen}
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="xMidYMid meet"
         className="absolute inset-0 h-full w-full"
@@ -253,8 +262,12 @@ function EarthMissionMap({
 export default function EarthTeamMonitoring({
   messages, statusUpdateIntervalSeconds, simTime, oneWayDelayMinutes, plannedRoute,
   missionName, missionId, onReloadMessages, simulationPaused, missionActive, onSetOneWayDelayMinutes,
+  onHealthReplay, simulationSpeedMultiplier, onSetSimulationSpeedMultiplier,
 }: EarthTeamMonitoringProps) {
-  const [inboxTab, setInboxTab] = useState<'messages'|'notes'>('messages');
+  const [mainView,setMainView]=useState<'map'|'compare'>('map');
+  const [focus,setFocus]=useState<'split'|'map'|'suit'>('split');
+  const [trackingView,setTrackingView]=useState<'pov'|'map'>('pov');
+  const openMap=()=>{setFocus('map');setTrackingView('pov');};
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
@@ -295,6 +308,7 @@ export default function EarthTeamMonitoring({
     waitingQuestions[0] ??
     observationMessages[0] ??
     null;
+  const replyAdvice=adviceFromReport(selectedMessage?.statusSnapshot??latestStatus);
   const selectedObservation = selectedMessage?.observationSnapshot ?? null;
   const receivedPosition = selectedMessage?.statusSnapshot?.position ??
     (selectedObservation?.location.x !== undefined && selectedObservation.location.z !== undefined
@@ -329,6 +343,7 @@ export default function EarthTeamMonitoring({
         simTime,
         oneWayDelayMinutes,
         authorName: 'Earth Science Team',
+        adviceContext:replyAdvice??undefined,
       });
       setReplyText('');
       setChangeSuggestion('');
@@ -342,7 +357,7 @@ export default function EarthTeamMonitoring({
   };
 
   const pendingReport = messages.filter(m => m.direction === 'uplink' && m.statusSnapshot?.missionId === missionId && m.deliveredAtSimTime > simTime).sort((a,b)=>a.deliveredAtSimTime-b.deliveredAtSimTime)[0];
-  const waitingText = !missionActive && !pendingReport ? 'No active walk. Switch to Mars crew, select a route and start walking to begin tracking.' : simulationPaused ? 'Mission paused. Press Resume to continue the clock and deliver position reports.' : pendingReport ? `First position report in transit · arrives in ${Math.ceil((pendingReport.deliveredAtSimTime-simTime)/60)} min. The map updates when it reaches Earth.` : `Waiting for the crew’s first report. Position updates take ${oneWayDelayMinutes} simulated minutes to reach Earth.`;
+  const waitingText = !missionActive && !pendingReport ? 'No active walk · send a mission plan.' : simulationPaused ? 'Mission paused · awaiting resume.' : pendingReport ? `First report in ${Math.ceil((pendingReport.deliveredAtSimTime-simTime)/60)} min.` : `Waiting for crew · ${oneWayDelayMinutes} min delay.`;
   const receivedGeo = viewedStatus ? cropMetersToLonLat(viewedStatus.position.x, viewedStatus.position.z) : null;
   const observationImage = selectedObservation?.imageRef;
   const observationImageLabel = selectedObservation?.imageIsArchival
@@ -351,38 +366,59 @@ export default function EarthTeamMonitoring({
       ? 'Simulation screenshot'
       : 'Explorer attachment';
 
+  if (!missionActive) return <div className="control-empty" role="status"><p>Mission control opens when the crew starts a walk.</p></div>;
+
   return (
     <div className="earth-workspace">
       <section className="earth-heading">
-        <div><p className="eyebrow">EARTH / MISSION SUPPORT</p><h1>{missionName}</h1></div>
-        <p className="link-status"><span className={isOverdue ? 'status-dot warning' : 'status-dot'}/>{latestStatus ? (isOverdue ? 'Update overdue' : 'Reports arriving') : 'Waiting for Mars'} · {oneWayDelayMinutes===0?'Live demo · no signal delay':`${oneWayDelayMinutes} min delay`}</p>
+        <div><p className="eyebrow">EARTH / MISSION CONTROL</p><h1>{missionName}</h1></div>
+        <p className="link-status"><span className={isOverdue&&!latestStatus?.operations?.completed ? 'status-dot warning' : 'status-dot'}/>{latestStatus?.operations?.completed?'Final report received':latestStatus ? (isOverdue ? 'Update overdue' : 'Reports arriving') : 'Waiting for Mars'} · {oneWayDelayMinutes===0?(simulationSpeedMultiplier>1?'Demo 5× · no delay':'1× · no delay'):`1× · ${oneWayDelayMinutes} min delay`}</p>
       </section>
       <div className="earth-columns">
         <section className="earth-map-panel" aria-label="Received mission position">
-          {(viewedStatus?.mapMode==='regional'||(!viewedStatus&&plannedRoute?.mapMode==='regional'))?<div className="earth-regional"><RegionalMap points={viewedStatus?.plannedRoutePoints??plannedRoute?.points} position={viewedStatus?.position} trail={viewedHistory.map(m=>m.statusSnapshot?.position).filter((p):p is {x:number;z:number}=>Boolean(p))} label={viewedStatus?.operations?.name??'Crew'}/></div>:<EarthMissionMap waitingText={waitingText} status={viewedStatus} history={viewedHistory} highlightedPosition={receivedPosition}/>}
+          <div className="workspace-view-tabs"><button aria-pressed={mainView==='map'} onClick={()=>setMainView('map')}>Monitor</button><button aria-pressed={mainView==='compare'} onClick={()=>setMainView('compare')}>Compare plans</button>{mainView==='map'&&focus!=='split'&&<button className="split-return" onClick={()=>setFocus('split')}>Split view</button>}</div>
+          {mainView==='compare'?(viewedStatus?.comparison?<PlanComparison key={viewedStatus.missionId} input={viewedStatus.comparison} received/>:<div className="comparison-empty">Waiting for a planning report.</div>):<div className={`support-split focus-${focus}`}>
+            <section className="support-map" aria-label="Crew route map" hidden={focus==='suit'}>
+              <header><div><span className="eyebrow">SURFACE / TRACKING</span><h2>{focus==='map'&&trackingView==='pov'?'Crew perspective':'Surface position'}</h2></div>{focus==='split'?<button className="panel-expand" onClick={openMap}>Open 3D view</button>:<button className="panel-expand" onClick={()=>setTrackingView(v=>v==='pov'?'map':'pov')}>{trackingView==='pov'?'2D map':'3D POV'}</button>}</header>
+              <div className="tracking-state"><span><i className="status-dot"/>{viewedStatus?.operations?.completed?'Mission ended':viewedStatus?.movementState??'Awaiting report'}</span><span>{displayedAgeSeconds===null?'—':`${formatAge(displayedAgeSeconds)} old`}{replayMessage?' · Past report':viewedStatus?.operations?.completed?' · Final report':oneWayDelayMinutes>0?' · Delayed':' · Live simulation'}</span></div>
+              <div className="tracking-viewport" hidden={focus==='map'&&trackingView==='pov'}>
+                {((viewedStatus?.mapMode==='regional'||(!viewedStatus&&plannedRoute?.mapMode==='regional'))?<div className="earth-regional"><RegionalMap onOpen={focus==='split'?openMap:undefined} modelled={Boolean((viewedStatus?.planSummary??(!viewedStatus?plannedRoute?.explanation:undefined))?.startsWith('Modelled DTM'))} points={viewedStatus?.plannedRoutePoints??plannedRoute?.points} position={viewedStatus?.position} heading={viewedStatus?.headingRadians??0} trail={viewedHistory.map(m=>m.statusSnapshot?.position).filter((p):p is {x:number;z:number}=>Boolean(p))} label={viewedStatus?.operations?.name??'Crew'}/></div>:<EarthMissionMap onOpen={focus==='split'?openMap:undefined} waitingText={waitingText} status={viewedStatus} history={viewedHistory} highlightedPosition={receivedPosition}/>)}
+              </div>
+              {focus==='map'&&trackingView==='pov'&&<div className="tracking-viewport pov-viewport"><EarthFirstPerson status={viewedStatus} paused={simulationPaused||Boolean(replayMessage)} onMap={()=>setTrackingView('map')}/><span className="pov-source">Reconstructed POV · {viewedStatus?.operations?.completed?'final report':oneWayDelayMinutes>0?'received reports':'live simulation'}</span></div>}
+              {focus==='split'&&<footer className="tracking-footer"><span>{viewedStatus?.destinationName??plannedRoute?.destinationName??'Jezero crater'}</span><strong>{viewedStatus?`${Math.round(viewedStatus.progressPercent??0)}%`:'Awaiting crew'}</strong></footer>}
+            </section>
+            <div className="suit-panel-slot" hidden={focus==='map'}><SuitMonitor compact={focus!=='suit'} visible={focus!=='map'} onExpand={()=>setFocus('suit')} status={viewedStatus} history={viewedHistory.flatMap(m=>m.statusSnapshot?[m.statusSnapshot]:[])} now={simTime} paused={simulationPaused} onReplay={onHealthReplay} active={missionActive} replayingPast={Boolean(replayMessage)}/></div>
+          </div>}
+
+
 
         </section>
-        <aside className="earth-inbox" aria-label="Messages from Mars"><label className="earth-mode">Communication<select aria-label="Earth communication mode" value={oneWayDelayMinutes===0?0:5} onChange={e=>onSetOneWayDelayMinutes(Number(e.target.value))}><option value={0}>Live demo · no delay</option><option value={5}>Mars delay · 5 min</option></select></label>
+        <aside className="earth-inbox compact-sidebar" aria-label="Mission details">
+          <header className="sidebar-title"><span className="eyebrow">MISSION DETAILS</span><strong>{viewedStatus?.operations?.name??'Awaiting crew'}</strong></header>
+          {viewedStatus?.operations&&viewedStatus.operations.oxygenMinutes<=viewedStatus.operations.oxygenReserveMinutes&&<p className="ops-alert" role="alert">O₂ reserve reached</p>}
+          {viewedStatus?.operations?.stop?.level==='exceeded'&&<p className="ops-alert" role="alert">Stop limit exceeded</p>}
+          <details className="sidebar-section" open><summary>Mission status <span>{viewedStatus?`${Math.round(viewedStatus.progressPercent??0)}%`:'—'}</span></summary>
           <div className="received-summary">
             <div><span>Last reported</span><strong>{viewedStatus?.movementState ?? 'No position yet'}</strong></div>
             <div><span>Information age</span><strong>{displayedAgeSeconds === null ? '—' : formatAge(displayedAgeSeconds)}</strong></div>
             <div><span>Time left at report</span><strong>{viewedStatus?.remainingMissionMinutes == null ? '—' : `${Math.round(viewedStatus.remainingMissionMinutes)} min`}</strong></div>
           </div>
-          <div className="received-location"><span>{viewedStatus?.operations?.name || 'Explorer 01'} · {receivedGeo ? `${receivedGeo.lat.toFixed(5)}° N, ${receivedGeo.lon.toFixed(5)}° E` : 'Position pending'}</span><span>{displayedCaptureTime === null ? 'Awaiting first report' : `Recorded ${formatSimLMST(displayedCaptureTime)} · received ${formatSimLMST((replayMessage ?? latestStatusMessage)!.deliveredAtSimTime)}`}</span><span>Simulated crew position on orbital imagery · updates every {oneWayDelayMinutes===0?1:Math.min(5,statusUpdateIntervalSeconds)}s, delayed {oneWayDelayMinutes} min</span></div>
-          {!viewedStatus&&<div className="earth-wait" role="status">{pendingReport?`First crew report in ${Math.floor(Math.max(0,pendingReport.deliveredAtSimTime-simTime)/60)}:${String(Math.floor(Math.max(0,pendingReport.deliveredAtSimTime-simTime)%60)).padStart(2,'0')}`:waitingText}<small>Planned route shown below. Crew position and health appear only after delivery.</small></div>}
           <div className="earth-progress"><span>Reported route progress</span><progress max={100} value={viewedStatus?.progressPercent??0}/><strong>{viewedStatus?`${Math.round(viewedStatus.progressPercent??0)}% · ${Math.round(viewedStatus.routeDistanceMeters??0)} / ${Math.round(viewedStatus.routeTotalMeters??0)} m`:'Awaiting telemetry'}</strong></div>
-          <details className="activity-drawer"><summary>Crew tasks · {viewedStatus?.currentTaskName || 'No active task reported'}</summary>{viewedStatus?.taskSummary?.map(task => <p key={task.id} className="py-1">{task.title} · {task.status.replace(/_/g,' ')}</p>) ?? <p>No task report received.</p>}</details>
-          <details className="activity-drawer"><summary>Received activity · {activityMessages.length} reports</summary>
+          </details>
+          <SurfaceReadout position={viewedStatus?.position} regional={viewedStatus?.mapMode==='regional'} slopeLimit={viewedStatus?.slopeLimitDeg} reported/>
+          <details className="sidebar-section"><summary>Tasks & stops <span>{viewedStatus?.operations?.routeTasks?.filter(t=>t.done&&t.selected!==false).length??0}/{viewedStatus?.operations?.routeTasks?.filter(t=>t.selected!==false).length??0}</span></summary><OperationsReceived compact report={viewedStatus?.operations} now={simTime} showTelemetry={mainView==='compare'}/></details>
+          <details className="source-disclosure received-location"><summary>Location & time</summary><span>{viewedStatus?.operations?.name || 'Explorer 01'} · {receivedGeo ? `${receivedGeo.lat.toFixed(5)}° N, ${receivedGeo.lon.toFixed(5)}° E` : 'Position pending'}</span><span>{displayedCaptureTime === null ? 'Awaiting first report' : `Recorded ${formatSimLMST(displayedCaptureTime)} · received ${formatSimLMST((replayMessage ?? latestStatusMessage)!.deliveredAtSimTime)}`}</span><span>Position simulation · {oneWayDelayMinutes} min signal delay</span></details>
+          {!viewedStatus&&<div className="earth-wait" role="status">{pendingReport?`First crew report in ${Math.floor(Math.max(0,pendingReport.deliveredAtSimTime-simTime)/60)}:${String(Math.floor(Math.max(0,pendingReport.deliveredAtSimTime-simTime)%60)).padStart(2,'0')}`:waitingText}<small>Position and health appear after delivery.</small></div>}
+          <details className="activity-drawer"><summary>Activity <span>{activityMessages.length}</span></summary>
             <button className="quiet-button" onClick={() => setSelectedEventId(null)}>Latest received position</button>
             <div className="activity-list">{activityMessages.slice().reverse().map(message => <button key={message.id} aria-pressed={selectedEventId === message.id} onClick={() => setSelectedEventId(message.id)}>{formatSimLMST(getPacketTime(message))} · {message.statusSnapshot?.activityEvent || message.statusSnapshot?.movementState || 'Report'}</button>)}</div>
           </details>
           {replayMessage && <div className="replay-bar">Viewing past report <button onClick={() => setSelectedEventId(null)}>Return to latest</button></div>}
 
-          <OperationsReceived report={viewedStatus?.operations}/>
-          <div className="inbox-heading"><h2>Crew link</h2><span>{waitingQuestions.length} questions</span></div>
-          <div className="panel-tabs"><button aria-pressed={inboxTab === 'messages'} onClick={() => setInboxTab('messages')}>Messages</button><button aria-pressed={inboxTab === 'notes'} onClick={() => setInboxTab('notes')}>Notes & questions</button></div>
-          {inboxTab === 'messages' ? <MissionConversation messages={messages} side="earth" simTime={simTime} delay={oneWayDelayMinutes} paused={simulationPaused} reload={onReloadMessages}/> : <div className="inbox-scroll">
-            {observationMessages.length ? <div className="message-list">{observationMessages.map(message => <button key={message.id} aria-pressed={selectedMessage?.id === message.id} onClick={() => selectMessage(message)}><strong>{message.kind === 'question' ? (message.replyText ? 'Replied' : 'Question') : 'Observation'}</strong><span>{message.siteName || 'Field report'}</span></button>)}</div> : <div className="inbox-empty"><h3>No messages yet</h3><p>Crew notes and questions appear here after the signal delay.</p></div>}
+          {viewedStatus?.planning&&<details className="activity-drawer"><summary>Journey estimates</summary><p>Arrival {viewedStatus.planning.arrivalMinutes.toFixed(1)} min · Return {viewedStatus.planning.returnMinutes.toFixed(1)} min</p><p>{viewedStatus.planning.paceObserved?'Observed simulation':'Assumed'} pace {viewedStatus.planning.paceMps.toFixed(2)} m/s</p><p>Stop allowance {viewedStatus.planning.stopAllowanceMinutes.toFixed(1)} min · Earliest reply {viewedStatus.planning.replyMinutes} min + review</p><small>Captured values; not extrapolated to the present.</small></details>}
+          
+          <details className="sidebar-section"><summary>Notes & questions <span>{waitingQuestions.length?`${waitingQuestions.length} new`:observationMessages.length}</span></summary><div className="inbox-scroll">
+            {observationMessages.length ? <div className="message-list">{observationMessages.map(message => <button key={message.id} aria-pressed={selectedMessage?.id === message.id} onClick={() => selectMessage(message)}><strong>{message.kind === 'question' ? (message.replyText ? 'Replied' : 'Question') : 'Observation'}</strong><span>{message.siteName || 'Field report'}</span></button>)}</div> : <div className="inbox-empty"><h3>No messages yet</h3><p>Waiting for crew notes.</p></div>}
             {selectedMessage && <article className="message-detail">
               <p className="eyebrow">{selectedMessage.siteName} · {formatSimLMST(getPacketTime(selectedMessage))}</p>
               {observationImage && <figure><img src={observationImage} alt={selectedObservation?.imageCaption || 'Received observation'}/><figcaption>{observationImageLabel}</figcaption></figure>}
@@ -391,6 +427,7 @@ export default function EarthTeamMonitoring({
               {selectedMessage.kind === 'question' && <h3 className="message-body">{selectedMessage.questionText}</h3>}
               <details><summary>Location & source</summary><p>{selectedObservation?.location.description || selectedMessage.statusSnapshot?.coordinateReference || 'Location not included.'}</p><p>Received {formatSimLMST(selectedMessage.deliveredAtSimTime)} · Plan {selectedMessage.originalPlanVersion}</p></details>
               {selectedMessage.kind === 'question' && (selectedMessage.replyText ? <div className="sent-reply"><strong>{selectedMessage.replyDeliveredAtSimTime != null && simTime >= selectedMessage.replyDeliveredAtSimTime ? 'Reply delivered' : 'Reply on its way'}</strong><p className="message-body">{selectedMessage.replyText}</p></div> : <form onSubmit={e => {e.preventDefault(); void handleSendReply();}}>
+                <AdvicePreview context={replyAdvice} now={simTime} delay={oneWayDelayMinutes}/>
                 <label htmlFor="earth-reply">Reply to crew</label>
                 <textarea id="earth-reply" rows={4} placeholder="Write a short reply…" value={replyText} onChange={e => setReplyText(e.target.value)}/>
                 {replyError && <p role="alert">{replyError}</p>}
@@ -398,10 +435,11 @@ export default function EarthTeamMonitoring({
                 <p className="delivery-note">Arrives on Mars in {oneWayDelayMinutes} simulated minutes.</p>
               </form>)}
             </article>}
-          </div>}
+          </div></details>
+          <details className="sidebar-section"><summary>Connection <span>{oneWayDelayMinutes} min</span></summary><label className="earth-mode">Communication<select aria-label="Earth communication mode" value={oneWayDelayMinutes>0?'delayed':simulationSpeedMultiplier>1?'fast':'normal'} onChange={e=>{const mode=e.target.value;if(mode==='delayed')onSetOneWayDelayMinutes(5);else onSetSimulationSpeedMultiplier(mode==='fast'?5:1);}}><option value="normal">Normal · 1× · no delay</option><option value="delayed">Mars delay · 1× · 5 min</option><option value="fast">Fast demo · 5× · no delay</option></select></label></details>
         </aside>
       </div>
-      <p className="earth-footnote">Tracking updates as reports arrive · signal delay applies in both directions · SQLite session.</p>
+      
     </div>
   );
 }

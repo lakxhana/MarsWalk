@@ -1,4 +1,6 @@
 export const METRICS = {
+ bloodOxygen:{label:'Blood oxygen (SpO₂)',unit:'%',min:0,max:100},
+ respiratoryRate:{label:'Breathing rate',unit:'breaths/min',min:0,max:100},
  heartRate:{label:'Heart rate',unit:'bpm',min:0,max:300},
  bodyTemperature:{label:'Body temperature',unit:'°C',min:20,max:50},
  suitPressure:{label:'Suit pressure',unit:'kPa',min:0,max:150},
@@ -7,7 +9,7 @@ export const METRICS = {
  airTemperature:{label:'Outside air temperature',unit:'°C',min:-150,max:60},
 } as const;
 export type MetricId = keyof typeof METRICS;
-export interface HealthReading {metric:MetricId;value:number;capturedAt:number;source:'manual';low:number|null;high:number|null;}
+export interface HealthReading {metric:MetricId;value:number;capturedAt:number;source:'manual'|'simulated'|'replay';record?:string;seriesId?:string;sampleSeconds?:number;low:number|null;high:number|null;}
 export type HealthReadings = Partial<Record<MetricId,HealthReading>>;
 export function readingState(reading:HealthReading|undefined,now:number):'missing'|'stale'|'low'|'high'|'recorded' {
  if(!reading)return 'missing';if(now-reading.capturedAt>60)return 'stale';

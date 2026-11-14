@@ -827,7 +827,6 @@ export default function MarsGlobe({
 
       {/* BOTTOM-LEFT: Gestures & Imagery Source Link (Board 01) */}
       <div className="pointer-events-none absolute left-4 sm:left-6 bottom-4 sm:bottom-6 z-20 flex flex-col gap-1 text-[11px] text-neutral-400">
-        <div>Drag to rotate · Scroll to zoom</div>
         <div className="text-[10px] text-neutral-500 max-w-sm">
           {loadState === 'ready'
             ? MARS_PHOTOGRAPHIC_CREDIT

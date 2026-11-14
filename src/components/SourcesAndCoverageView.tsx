@@ -17,23 +17,23 @@ interface SourcesAndCoverageViewProps {
 export default function SourcesAndCoverageView({
   onBackToPlan,
 }: SourcesAndCoverageViewProps) {
-  const [expandedManifestId, setExpandedManifestId] = useState<string | null>('hirise-dtm');
+  const [expandedManifestId, setExpandedManifestId] = useState<string | null>('jezero-west-active');
 
   const summaryLayers = [
     {
-      name: 'Walk elevation grid',
+      name: 'Legacy east-crop elevation grid',
       source: MEASURED_DTM_METADATA.productId,
       status: '321 × 321 measured postings · 8.0773 m spacing',
       category: 'derived',
     },
     {
-      name: 'Walk orbital imagery',
+      name: 'Legacy east-crop orbital imagery',
       source: JEZERO_HIRISE_CROP.productId,
       status: '2560 × 2560 crop · 1.0097 m/pixel',
       category: 'observed',
     },
     {
-      name: 'Navigation coverage',
+      name: 'Legacy crop coverage',
       source: 'Overlapping HiRISE crop and DTM',
       status: `${JEZERO_COVERAGE_SUMMARY.imageNoDataCellCount} image-gap cells inferred from JPEG zeros; approximate`,
       category: 'derived',
@@ -138,7 +138,7 @@ export default function SourcesAndCoverageView({
                     <span>[Observed Data]</span>
                   </div>
                   <div className="text-[11px] text-[#a9d494] leading-tight">
-                    Bundled HiRISE orbital imagery from product {JEZERO_HIRISE_CROP.productId}.
+                    Legacy east-crop imagery (separate from current named routes), product {JEZERO_HIRISE_CROP.productId}.
                   </div>
                 </div>
 
@@ -317,7 +317,7 @@ export default function SourcesAndCoverageView({
                 </div>
               </dl>
               <p className="border-t border-[#3c342e] pt-3 text-xs leading-5 text-[#b3a595]">
-                Mapped terrain coverage is the overlapping crop plus known internal gaps. The DTM contains no missing postings in the bundled grid. The {JEZERO_COVERAGE_SUMMARY.imageNoDataCellCount}-cell image-gap mask is inferred from exact-zero pixels in a lossy JPEG, so its boundaries are approximate; source nulls not preserved by JPEG cannot be ruled out.
+                This older east-crop coverage is separate from the current western named-site route data. Its mapped coverage is the overlapping crop plus known internal gaps. The DTM contains no missing postings in the bundled grid. The {JEZERO_COVERAGE_SUMMARY.imageNoDataCellCount}-cell image-gap mask is inferred from exact-zero pixels in a lossy JPEG, so its boundaries are approximate; source nulls not preserved by JPEG cannot be ruled out.
               </p>
               <a
                 href={JEZERO_HIRISE_CROP.sourceUrl}

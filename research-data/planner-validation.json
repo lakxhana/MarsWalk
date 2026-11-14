@@ -1,0 +1,100 @@
+{
+  "description": "Reproducible algorithm checks and illustrative scenario comparison. Not human/Mars validation.",
+  "exhaustiveComparisonCases": 80,
+  "passed": true,
+  "fixture": {
+    "distanceMetres": 660,
+    "speedMps": 1.1,
+    "budgetMinutes": 40,
+    "reserveMinutes": 10,
+    "oxygenEnduranceMinutes": 120,
+    "oxygenReserveMinutes": 15,
+    "tasks": [
+      {
+        "id": "a",
+        "title": "Context",
+        "minutes": 4,
+        "priority": 2,
+        "fraction": 0.3,
+        "done": false
+      },
+      {
+        "id": "b",
+        "title": "Layers",
+        "minutes": 6,
+        "priority": 5,
+        "fraction": 0.6,
+        "done": false
+      },
+      {
+        "id": "c",
+        "title": "Destination",
+        "minutes": 5,
+        "priority": 4,
+        "fraction": 1,
+        "done": false
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "factor": 0.7,
+      "speed": 0.77,
+      "travel": 28.57142857142857,
+      "capacity": 1.4285714285714306,
+      "chosen": {
+        "ids": [],
+        "score": 0,
+        "minutes": 0
+      },
+      "fixedScore": 11,
+      "fixedMinutes": 15,
+      "fixedFits": false,
+      "fits": true,
+      "margin": 1.4285714285714306
+    },
+    {
+      "factor": 1,
+      "speed": 1.1,
+      "travel": 20,
+      "capacity": 10,
+      "chosen": {
+        "ids": [
+          "a",
+          "b"
+        ],
+        "score": 7,
+        "minutes": 10
+      },
+      "fixedScore": 11,
+      "fixedMinutes": 15,
+      "fixedFits": false,
+      "fits": true,
+      "margin": 0
+    },
+    {
+      "factor": 1.2,
+      "speed": 1.32,
+      "travel": 16.666666666666668,
+      "capacity": 13.333333333333332,
+      "chosen": {
+        "ids": [
+          "b",
+          "c"
+        ],
+        "score": 9,
+        "minutes": 11
+      },
+      "fixedScore": 11,
+      "fixedMinutes": 15,
+      "fixedFits": false,
+      "fits": true,
+      "margin": 2.333333333333332
+    }
+  ],
+  "terrain": {
+    "recordedMetres": 22.925897763009605,
+    "modelledMetres": 26.681896606229696,
+    "maxSlope": 18.00964323185521
+  }
+}

@@ -18,6 +18,7 @@ export function openDatabase(filename) {
   db.exec('CREATE TABLE IF NOT EXISTS mission (id INTEGER PRIMARY KEY CHECK(id=1), payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS migrations (id TEXT PRIMARY KEY);');
   db.exec('CREATE TABLE IF NOT EXISTS metadata (id TEXT PRIMARY KEY, value TEXT NOT NULL)');
   db.prepare('INSERT OR IGNORE INTO metadata(id,value) VALUES(?,?)').run('database-id',randomUUID());
+  db.exec('CREATE TABLE IF NOT EXISTS commands (id TEXT PRIMARY KEY, payload TEXT NOT NULL)');
   const databaseId = db.prepare('SELECT value FROM metadata WHERE id=?').get('database-id').value;
   function tableName(table) {if(!collections.has(table))throw new Error('Unknown collection');return table;}
   function list(table) {return db.prepare(`SELECT payload FROM ${tableName(table)} ORDER BY rowid`).all().map(r=>JSON.parse(r.payload));}
@@ -30,7 +31,7 @@ export function openDatabase(filename) {
         const old = JSON.parse(previous.payload);
         if(old.replyText && !value.replyText) {
           value={...value};
-          for(const key of ['replyText','replySentAtSimTime','replyDeliveredAtSimTime','replyPlanVersion','scienceTeamAuthor','planDifference']) if(old[key] !== undefined)value[key]=old[key];
+          for(const key of ['replyText','replySentAtSimTime','replyDeliveredAtSimTime','replyPlanVersion','scienceTeamAuthor','planDifference','replyAdviceContext']) if(old[key] !== undefined)value[key]=old[key];
         }
       }
     }
@@ -49,6 +50,9 @@ export function openDatabase(filename) {
   }
   return {
     databaseId,list,put,importRecords,
+    enqueueCommand(value){if(!value||typeof value.id!=='string'||value.id.length>100||!['draft','sendPlan','accept','request','crew','investigate','walkMode','end','return','resumeSaved','mode','evidence','healthReplay'].includes(value.kind))throw new Error('Invalid command');db.prepare('INSERT OR IGNORE INTO commands(id,payload) VALUES(?,?)').run(value.id,JSON.stringify(value));},
+    getCommands(){return db.prepare('SELECT payload FROM commands ORDER BY rowid LIMIT 100').all().map(r=>JSON.parse(r.payload));},
+    commitSession(state,ack){transaction(()=>{this.saveMission(state);if(!Array.isArray(ack)||ack.some(id=>typeof id!=='string'))throw new Error('Invalid acknowledgement');for(const id of ack)db.prepare('DELETE FROM commands WHERE id=?').run(id);});},
     remove(table,ids) {if(!Array.isArray(ids)||ids.some(id=>typeof id!=='string'))throw new Error('Invalid IDs');transaction(()=>{for(const id of ids)db.prepare(`DELETE FROM ${tableName(table)} WHERE id=?`).run(id);});},
     seed(tasks) {transaction(()=>{for(const task of tasks)put('tasks',task,true);});},
     getMission() {const row=db.prepare('SELECT payload FROM mission WHERE id=1').get();return row ? JSON.parse(row.payload) : null;},

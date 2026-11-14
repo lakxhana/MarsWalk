@@ -1,0 +1,5 @@
+id,name,rover_sol,rover_motion_counter,longitude_east_deg,latitude_deg,elevation_m,meaning
+skinner-ridge,Skinner Ridge,477,26_1004,77.40616768,18.45889532,-2520.852539,Rover location at the named site; not an individual rock or sample-tube coordinate.
+wildcat-ridge,Wildcat Ridge,502,26_1222,77.40592495,18.45864728,-2523.167969,Rover location at the named site; not an individual rock or sample-tube coordinate.
+three-forks,Three Forks depot,652,32_148,77.40775601,18.45262651,-2545.263,Rover location at the named site; not an individual rock or sample-tube coordinate.
+butler-landing,Octavia E. Butler Landing,13,3_0,77.45088572,18.44462715,-2569.91,Rover location at the named site; not an individual rock or sample-tube coordinate.

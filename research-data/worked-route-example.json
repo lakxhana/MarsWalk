@@ -1,0 +1,39 @@
+{
+  "description": "Computed from the bundled runtime route, not a fabricated distance. Local projected horizontal distance; see guide for assumptions.",
+  "start": "Skinner Ridge",
+  "destination": "Wildcat Ridge",
+  "distance_m": 22.925897763009605,
+  "speed_m_s": 1.1,
+  "inputs": {
+    "mission_minutes": 60,
+    "mission_reserve_minutes": 10,
+    "crew": {
+      "name": "Explorer 01",
+      "tankId": "Tank A",
+      "oxygenMinutes": 120,
+      "oxygenReserveMinutes": 15,
+      "stopLimitMinutes": 5,
+      "plannedStops": 3,
+      "study": "local",
+      "stops": [],
+      "observationIds": [],
+      "missionStart": null,
+      "destination": "Selected destination",
+      "taskPhoto": false,
+      "taskNote": false,
+      "lastFinding": "",
+      "completedAt": null
+    }
+  },
+  "calculated": {
+    "travel": 0.3473620873183273,
+    "observe": 15,
+    "work": 15.694724174636654,
+    "total": 25.694724174636654,
+    "rate": 86,
+    "required": 43.99577131697921,
+    "missionOxygen": 107.5,
+    "available": 172,
+    "errors": []
+  }
+}

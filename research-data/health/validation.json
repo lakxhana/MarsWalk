@@ -1,0 +1,14 @@
+{
+  "version": "1.9.3",
+  "date": "2026-11-14",
+  "typecheck": "passed",
+  "lint": "passed",
+  "build": "passed",
+  "test_suite": "passed (17 TS/component/journey scripts plus SQLite, session and HTTP tests)",
+  "targeted_http_asset_test": "passed: GLB 200 status and binary length/magic",
+  "reference_samples_checked": 481,
+  "embedded_textures_verified": 4,
+  "model_geometry": "Three.js GLTF parser, bounding box orientation and centering passed; CPU texture projection inspected",
+  "browser_webgl": "not verified: local Chromium launch blocked by environment socket restriction",
+  "tablet_microphone": "requires physical-device check"
+}

@@ -1,4 +1,4 @@
-// MARSWALK SQLite-backed API persistence
+// Shared mission API persistence
 // Stores scientific observations, delayed communication messages, and field tasks.
 // Safely migrates existing localStorage entries without deletion.
 // Provides validated JSON import / export and explicit error handling.
@@ -52,6 +52,8 @@ export interface ObservationRecord {
 export type CommMessageStatus = 'queued' | 'in_transit' | 'delivered' | 'replied';
 
 export interface CommMessage {
+  adviceContext?: import('./adviceTiming').AdviceContext;
+  replyAdviceContext?: import('./adviceTiming').AdviceContext;
   id: string;
   kind?: 'question' | 'status_update' | 'observation_update' | 'chat';
   observationId: string;
@@ -78,6 +80,9 @@ export interface CommMessage {
 }
 
 export interface MissionStatusSnapshot {
+  slopeLimitDeg?: number;
+  comparison?: import('./planComparison').ComparisonInput;
+  planning?:{paceMps:number;paceObserved:boolean;arrivalMinutes:number;returnMinutes:number;stopAllowanceMinutes:number;replyMinutes:number;reachableDistanceMeters:number|null};
   mapMode?: 'regional';
   routeDistanceMeters?:number;
   routeTotalMeters?:number;
@@ -135,57 +140,7 @@ export interface ExportDataPayload {
   };
 }
 
-export const DEFAULT_TASKS: FieldTask[] = [
-  {
-    id: 'task-outcrop-sampling',
-    title: 'Outcrop workspace & abrasion screening',
-    description: 'Inspect rock surface clasts, clear dust with gas puff, and evaluate abrasion patch placement.',
-    status: 'in_progress',
-    estimatedMinutes: 20,
-    isIndependent: false,
-    requiresEarthAdvice: true,
-    category: 'sampling',
-    siteId: 'skinner-ridge',
-  },
-  {
-    id: 'task-dust-opacity',
-    title: 'Atmospheric dust opacity check (Tau survey)',
-    description: 'Point Mastcam-Z toward solar disk through neutral density filters to measure atmospheric optical depth.',
-    status: 'pending',
-    estimatedMinutes: 8,
-    isIndependent: true,
-    category: 'atmospheric',
-  },
-  {
-    id: 'task-quadrant-grain-survey',
-    title: 'Workspace pebble grain-size distribution count',
-    description: 'Document 1 m² regolith quadrant to establish fluvial energy baseline.',
-    status: 'pending',
-    estimatedMinutes: 12,
-    isIndependent: true,
-    category: 'survey',
-  },
-  {
-    id: 'task-thermal-baseline',
-    title: 'Ground surface thermal baseline (Sunlit vs Shadow)',
-    description: 'Record radiometric surface temperature contrast across boulder shadow contacts.',
-    status: 'pending',
-    estimatedMinutes: 10,
-    isIndependent: true,
-    category: 'atmospheric',
-  },
-  {
-    id: 'task-cache-inspection',
-    title: 'Sample tube cache seal inspection',
-    description: 'Inspect sample return tube seals and mechanical latching mechanisms.',
-    status: 'pending',
-    estimatedMinutes: 15,
-    isIndependent: true,
-    category: 'maintenance',
-  },
-];
-
-// SQLite API; IndexedDB is only read during the one-time migration.
+// Legacy import is explicit only; fresh databases start empty.
 async function api<T>(path: string, method = 'GET', value?: unknown): Promise<T> {
   let response: Response;
   try {response = await fetch(`/api/${path}`, {method, headers: {'Content-Type':'application/json'}, body:value === undefined ? undefined : JSON.stringify(value)});}
@@ -209,7 +164,6 @@ export async function migrateLegacyNotebook(): Promise<number> {
   localStorage.setItem(migrationKey,'true');
   return observations.length;
 }
-export async function initializeDefaultTasks(): Promise<void> {await api('seed','POST',{tasks:DEFAULT_TASKS});}
 export async function getAllObservations(): Promise<ObservationRecord[]> {return (await api<ObservationRecord[]>('observations')).sort((a,b)=>new Date(b.timestamp).getTime()-new Date(a.timestamp).getTime());}
 export async function getObservationById(id:string): Promise<ObservationRecord | null> {return (await getAllObservations()).find(o=>o.id===id) ?? null;}
 export async function saveObservation(record:ObservationRecord): Promise<void> {await api('observations','PUT',record);}
