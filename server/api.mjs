@@ -72,7 +72,7 @@ export function createApiHandler({getDatabase, databaseType, env = process.env, 
       const db = await getDatabase();
       if (!sessions.has(db)) sessions.set(db, db.pollSession ? {poll:input=>db.pollSession(input), enqueue:async input=>{await db.enqueueCommand(input); return {ok:true};}} : createSession(db));
       const session = sessions.get(db);
-      if (resource === 'health') return json(res, 200, {ok:true, database:databaseType, databaseId:db.databaseId, version:'1.9.11'});
+      if (resource === 'health') return json(res, 200, {ok:true, database:databaseType, databaseId:db.databaseId, version:'1.9.12'});
       const data = req.method === 'GET' ? undefined : await readBody(req, maxBodyBytes);
       if (resource === 'session') return json(res, 200, await session.poll(data));
       if (resource === 'commands') return json(res, 200, await session.enqueue(data));

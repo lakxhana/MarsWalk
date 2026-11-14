@@ -18,7 +18,7 @@ await b.enqueueCommand({id:'c1',kind:'mode',payload:{speed:5,delay:0}});
 await assert.rejects(a.pollSession({clientId:'earth-client',state:{...state,simTime:NaN},ack:['c1']}),/Invalid mission/);
 assert.equal((await a.pollSession({clientId:'earth-client'})).commands.length,1,'failed snapshot cannot lose a command');
 await a.pollSession({clientId:'earth-client',state:{...state,simTime:124},ack:['c1']});assert.equal((await a.pollSession({clientId:'earth-client'})).commands.length,0);
-now+=5001;const takeover=await b.pollSession({clientId:'mars-client',state:{...state,simTime:999}});assert.equal(takeover.claimed,true);assert.equal(takeover.mission.simTime,124);assert.equal(takeover.mission.restorePending,true);assert.equal(takeover.mission.simulationPaused,true);
+now+=30001;const takeover=await b.pollSession({clientId:'mars-client',state:{...state,simTime:999}});assert.equal(takeover.claimed,true);assert.equal(takeover.mission.simTime,124);assert.equal(takeover.mission.restorePending,true);assert.equal(takeover.mission.simulationPaused,true);
 const message={id:'m1',direction:'uplink',questionText:'Sample here?',sentAtSimTime:10,deliveredAtSimTime:310};
 await a.put('messages',message);await b.put('messages',{...message,replyText:'Proceed',replyDeliveredAtSimTime:620});await a.put('messages',message);assert.equal((await a.list('messages'))[0].replyText,'Proceed');
 const record={id:'t1',title:'Photo',status:'pending'};

@@ -1,4 +1,4 @@
-# MARSWalk 1.9.11
+# MARSWalk 1.9.12
 
 A Mars exploration prototype with a shared Earth/Mars mission.
 
@@ -51,3 +51,5 @@ npm run lint
 npm run build
 npm test
 ```
+
+Cloud sync: one controller publishes shared progress; a 30-second lease tolerates network latency. Chat refreshes independently. If the controller closes, another tab can take over after the lease expires and resume the saved walk.

@@ -28,5 +28,5 @@ const server=createServer(async(req,res)=>{
   }catch(e){console.error(e.message);json(res,400,{error:e.message || 'Request failed'});}
 });
 server.on('error',e=>{console.error(e.code==='EADDRINUSE'?`Port ${port} is busy. Stop the older MARSWalk server with Ctrl+C first.`:e.message);db.close();process.exitCode=1;});
-server.listen(port,process.env.HOST||'127.0.0.1',()=>console.log(`MARSWalk 1.9.11 · ${databaseType} connected\nOpen http://127.0.0.1:${port}\nDatabase: ${databaseType==='SQLite'?databaseFile:'shared Postgres'}`));
+server.listen(port,process.env.HOST||'127.0.0.1',()=>console.log(`MARSWalk 1.9.12 · ${databaseType} connected\nOpen http://127.0.0.1:${port}\nDatabase: ${databaseType==='SQLite'?databaseFile:'shared Postgres'}`));
 for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>server.close(async()=>{await db.close();process.exit(0);}));

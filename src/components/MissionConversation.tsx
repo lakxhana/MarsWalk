@@ -21,7 +21,7 @@ export default function MissionConversation({messages, side, simTime, delay, pau
   const send = async () => {
     if (!draft.trim() || sending) return;
     setSending(true); setError('');
-    try { await sendCrewMessage({text:draft, direction:outgoing, simTime, oneWayDelayMinutes:delay,adviceContext:advice??undefined}); setDraft(''); await reload(); }
+    try { await sendCrewMessage({text:draft, direction:outgoing, simTime, oneWayDelayMinutes:delay,adviceContext:advice??undefined}); setDraft(''); void reload().catch(()=>setError('Message saved. Waiting for history to refresh.')); }
     catch(e){setError(e instanceof Error ? e.message : 'Message could not be sent.');} finally{setSending(false);}
   };
   return <div className="conversation">

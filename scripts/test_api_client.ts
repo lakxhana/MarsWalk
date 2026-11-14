@@ -14,6 +14,14 @@ async function run() {
   await check(200,'<!doctype html>',/page instead/,'text/html');
   globalThis.fetch=async()=>new Response('null',{headers:{'content-type':'application/json'}});
   assert.equal(await apiRequest('mission'),null,'an empty mission is valid');
+  const originalTimer=globalThis.setTimeout;
+  globalThis.setTimeout=((callback:()=>void)=>originalTimer(callback,1)) as typeof setTimeout;
+  try {
+    globalThis.fetch=async(_url,options)=>new Promise((_resolve,reject)=>{
+      options?.signal?.addEventListener('abort',()=>reject(new Error('aborted')),{once:true});
+    });
+    await assert.rejects(apiRequest('messages','PUT',{id:'pending'}),e=>e instanceof ApiRequestError&&e.status===408);
+  } finally {globalThis.setTimeout=originalTimer;}
   console.log('PASS API client: missing API, sign-in, upload size, setup errors, HTML fallback and empty mission');
  } finally {globalThis.fetch=original;}
 }

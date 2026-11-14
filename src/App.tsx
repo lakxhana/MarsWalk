@@ -288,19 +288,41 @@ export default function App({initialMission,shared=false}: {initialMission?: Per
       controllerRef.current=reply.controller;setController(reply.controller);setSyncError('');
       if(reply.controller){if(!reply.claimed)appliedCommands.current=appliedCommands.current.filter(id=>!ack.includes(id));
         for(const command of reply.commands)if(!appliedCommands.current.includes(command.id)){commandHandler.current(command);appliedCommands.current.push(command.id);}}
-      const [msgs,obs,ts]=await Promise.all([getAllMessages(),getAllObservations(),getAllTasks()]);if(!cancelled){setMessages(msgs);setObservations(obs);setTasks(ts);}
-    }catch(e){if(!cancelled){setSyncError(String(e));controllerRef.current=false;setController(false);}}finally{busy=false;}};
+    }catch(e){if(!cancelled){setSyncError(String(e));}}finally{busy=false;}};
     void poll();const timer=setInterval(()=>void poll(),1000);return()=>{cancelled=true;clearInterval(timer);};
   },[shared,clientId]);
 
+  // Record reads must not delay the controller heartbeat.
+  useEffect(()=>{
+    if(!shared)return;
+    let cancelled=false,busy=false;
+    const refresh=async()=>{
+      if(cancelled||busy)return;
+      busy=true;
+      try {
+        const [msgs,obs,ts]=await Promise.all([getAllMessages(),getAllObservations(),getAllTasks()]);
+        if(!cancelled){setMessages(msgs);setObservations(obs);setTasks(ts);}
+      } catch(error){console.error('Mission records refresh failed',error);}
+      finally{busy=false;}
+    };
+    void refresh();const timer=setInterval(()=>void refresh(),2000);
+    return()=>{cancelled=true;clearInterval(timer);};
+  },[shared]);
+
+  const updatingComms=useRef(false);
   // Update message statuses as simTime advances
   useEffect(() => {
     async function updateComms() {
-      if (!controller || messages.length === 0) return;
-      const { updatedMessages, hasChanges } = await tickMessageStatuses(messages, simTime);
-      if (hasChanges) {
-        setMessages(updatedMessages);
-      }
+      if (!controller || messages.length === 0 || updatingComms.current) return;
+      updatingComms.current=true;
+      try {
+        const { updatedMessages, hasChanges } = await tickMessageStatuses(messages, simTime);
+        if(hasChanges)setMessages(current=>current.map(message=>{
+          const updated=updatedMessages.find(item=>item.id===message.id);
+          return updated?{...message,status:updated.status}:message;
+        }));
+      } catch(error){console.error('Message delivery refresh failed',error);}
+      finally{updatingComms.current=false;}
     }
     updateComms();
   }, [simTime, messages, controller]);

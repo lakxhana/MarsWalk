@@ -68,3 +68,14 @@ data/*.sqlite*
 .env
 .env.*
 !.env.example
+
+# Local files
+/data/
+/node_modules/
+/dist/
+*.sqlite*
+:q*.db
+*.db-*
+.env
+.env.*
+!.env.example

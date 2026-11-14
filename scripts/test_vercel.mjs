@@ -66,9 +66,18 @@ try {
   assert.equal(connections,2,'warm requests reuse the connection pool');
   const restarted=createVercelHandler({env,connect});
   assert.equal((await request(restarted,'health')).body.databaseId,health.body.databaseId);
-  time+=5001;
+  time+=30001;
+  const renewed=await request(earth,'session','POST',{clientId:'earth-client',state:{...state,simTime:102,simulationPaused:false,restorePending:false}});
+  assert.equal(renewed.body.claimed,false,'slow same-owner heartbeat is a renewal, not a restore');
+  assert.equal(renewed.body.mission.simTime,102);
+  assert.equal(renewed.body.mission.restorePending,false);
+  time+=9000;
+  const slowViewer=await request(mars,'session','POST',{clientId:'mars-client'});
+  assert.equal(slowViewer.body.controller,false,'nine-second cloud latency must not transfer ownership');
+  assert.equal(slowViewer.body.mission.simulationPaused,false);
+  time+=30001;
   const takeover=await request(restarted,'session','POST',{clientId:'new-controller'});
-  assert.equal(takeover.body.mission.simTime,101);assert.equal(takeover.body.mission.restorePending,true);
+  assert.equal(takeover.body.mission.simTime,102);assert.equal(takeover.body.mission.restorePending,true);
   assert.equal((await request(restarted,'tasks')).body[0].status,'completed');
   // Public visitors use the same existing database, including mission history.
   // Old BASIC_AUTH_* settings alone must not reintroduce a login wall.
@@ -76,7 +85,7 @@ try {
   const publicEarth=createVercelHandler({env:publicEnv,connect});
   const publicMars=createVercelHandler({env:{...publicEnv,APP_ACCESS:'public',BASIC_AUTH_PASSWORD:''},connect});
   const saved=(await request(publicEarth,'mission','GET',undefined,{}));
-  assert.equal(saved.status,200);assert.equal(saved.body.simTime,101);
+  assert.equal(saved.status,200);assert.equal(saved.body.simTime,102);
   assert.equal(saved.headers['WWW-Authenticate'],undefined);
   assert.equal((await request(publicMars,'tasks','GET',undefined,{})).body[0].status,'completed');
   assert.equal((await request(publicMars,'observations','GET',undefined,{})).body[0].note,'Rock layers');
@@ -109,6 +118,6 @@ try {
   const retry=createVercelHandler({env,log:()=>{},connect:async()=>{if(++attempts===1)throw Object.assign(new Error('private-secret'),{code:'28P01'});return connect();}});
   const rejected=await request(retry,'health');assert.equal(rejected.status,503);assert.match(rejected.body.error,/password rejected/);assert.doesNotMatch(rejected.body.error,/private-secret/);
   assert.equal((await request(retry,'health')).status,200,'failed cold start can retry');
-  const config=await postgresConfig(env.DATABASE_URL,undefined,{serverless:true});assert.equal(config.max,1);assert.equal(config.ssl.rejectUnauthorized,true);
+  const config=await postgresConfig(env.DATABASE_URL,undefined,{serverless:true});assert.equal(config.max,3);assert.equal(config.ssl.rejectUnauthorized,true);
   console.log('PASS Vercel API: public history/notes, login-free shared access, optional private access, both body formats, empty Postgres, two independent instances, shared progress/tasks/messages/notes, restart persistence, one controller, upload cap, retry and TLS');
 } finally {await engine.close();}

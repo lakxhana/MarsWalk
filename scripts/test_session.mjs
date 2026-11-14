@@ -8,6 +8,6 @@ const state={simTime:100,surfacePose:{x:1,z:2},missionStartedAtSimTime:90,crewOp
 live.poll({clientId:a,state});assert.equal(live.poll({clientId:b,state:{...state,simTime:999}}).mission.simTime,100);
 live.enqueue({id:'cmd1',kind:'draft',payload:{budget:60}});live.enqueue({id:'cmd1',kind:'draft',payload:{budget:60}});assert.equal(live.poll({clientId:a}).commands.length,1);
 live.poll({clientId:a,state:{...state,simTime:101},ack:['cmd1']});assert.equal(db.getCommands().length,0);assert.equal(live.poll({clientId:b}).mission.simTime,101);
-now=6000;const takeover=live.poll({clientId:b});assert.equal(takeover.controller,true);assert.equal(takeover.mission.restorePending,true);assert.equal(takeover.mission.simulationPaused,true);
+now=31000;const takeover=live.poll({clientId:b});assert.equal(takeover.controller,true);assert.equal(takeover.mission.restorePending,true);assert.equal(takeover.mission.simulationPaused,true);
 assert.equal(live.poll({clientId:a,state:{...state,simTime:999}}).controller,false);assert.equal(db.getMission().simTime,101);
 assert.throws(()=>live.enqueue({id:'bad',kind:'execute',payload:{}}));db.close();console.log('PASS shared SQLite session: one clock, follower isolation, command deduplication, atomic acknowledgement and paused takeover');
