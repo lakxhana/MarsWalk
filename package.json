@@ -1,7 +1,7 @@
 {
   "name": "marswalk",
   "private": true,
-  "version": "1.9.9",
+  "version": "1.9.10",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -45,7 +45,7 @@
     "@electric-sql/pglite": "^0.3.14"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": "24.x"
   },
   "overrides": {
     "thenify-all": "1.6.0",

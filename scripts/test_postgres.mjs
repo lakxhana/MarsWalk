@@ -6,7 +6,7 @@ const engine=new PGlite();
 // in this test pool; production pg.Pool supplies independent locked connections.
 let pending=Promise.resolve();
 async function lock(){let release;const next=new Promise(r=>{release=r;});const previous=pending;pending=next;await previous;return release;}
-const pool={query:async(sql,params)=>{const release=await lock();try{return params===undefined&&sql.includes(';')?{rows:await engine.exec(sql)}:await engine.query(sql,params);}finally{release();}},connect:async()=>{const release=await lock();return {query:(sql,p)=>engine.query(sql,p),release};},end:async()=>{}};
+const pool={query:async(sql,params)=>{const release=await lock();try{return params===undefined&&sql.includes(';')?{rows:await engine.exec(sql)}:await engine.query(sql,params);}finally{release();}},connect:async()=>{const release=await lock();return {query:(sql,p)=>p===undefined&&sql.includes(';')?engine.exec(sql):engine.query(sql,p),release};},end:async()=>{}};
 let now=10000;
 const a=await openPostgres({pool,now:()=>now}),b=await openPostgres({pool,now:()=>now});
 assert.equal(a.databaseId,b.databaseId);assert.equal(await a.getMission(),null);

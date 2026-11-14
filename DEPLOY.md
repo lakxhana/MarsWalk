@@ -1,32 +1,47 @@
-# Shared deployment
+# Deploy on Vercel + Supabase
 
-**Recommended: Supabase Postgres + one Node 24 web service.** The backend connects to Postgres; browsers use the same authenticated `/api`. Earth/Mars updates poll every second. No browser database keys, Supabase client SDK or Realtime subscription is needed.
+This version includes the Vercel API. Upload the **whole project**, including `api/`, `server/` and `vercel.json`; uploading only `dist/` will not work.
 
-1. Create a fresh Supabase project. In **Connect → Session pooler**, copy the complete connection URI and substitute your database password. Use the provider's exact host/user, not a guessed URL. The session pooler works with an IPv4 Node host.
-2. Deploy this folder as a Node web service (or Docker container). Build: `npm ci && npm run build`. Start: `node --experimental-sqlite server/index.mjs`. Use Node 24.
-3. Set these **server secrets/settings** on the host:
-   - `DATABASE_URL` = the connection URI
-   - `HOST=0.0.0.0`; use the host's `PORT`
-   - `PUBLIC_ORIGIN` = your exact HTTPS URL, no trailing slash
-   - `BASIC_AUTH_USER=crew`; `BASIC_AUTH_PASSWORD` = your team's private password
-4. The server creates the empty `marswalk` schema using `server/schema.sql`. It imports no previous missions. Do not expose this schema through Supabase's Data API. The server connection user needs schema/table creation rights for first startup.
-5. Open the same HTTPS URL in two browsers; choose Earth team and Mars crew. Plan on Earth, review/start on Mars, monitor on Earth. `/api/health` reports `Postgres` after a successful connection.
+1. In Supabase, open **Connect → Transaction pooler**. Copy the full string starting `postgresql://` (shared pooler, port **6543**). Replace `[YOUR-PASSWORD]` with your database password. Percent-encode special characters in the password portion. Never share this string or commit it.
+2. In Vercel → project → **Settings → Environment Variables**, add these for **Production**:
 
-TLS certificate verification is always enabled. If the project requires its own CA, download it from the provider, mount it on the server and set `DATABASE_CA_FILE`. Do not disable certificate checks. Do not put DATABASE_URL in a `VITE_` variable or a Git commit.
+   | Key | Value | Type |
+   |---|---|---|
+   | `DATABASE_URL` | Full Supabase connection string, password included | Secret |
+   | `PUBLIC_ORIGIN` | `https://mars-walk-wine.vercel.app` (or your actual site URL) | Config |
+   | `BASIC_AUTH_USER` | `crew` | Config |
+   | `BASIC_AUTH_PASSWORD` | A separate private password for your team | Secret |
 
-Keep one mission-controller browser open: it advances the simulation. A database lease prevents two clients from advancing it together. After disconnect/takeover an active walk resumes paused. This is a shared team workspace with one mission, not separate authenticated roles or a server-run unattended simulator.
+   `DATABASE_URL` is the **name**, not the value. No `VITE_` prefix. Preview deployments need their own environment variables; use a separate database if they should not share production missions.
+3. Push this updated code to your existing GitHub repository. Keep your existing `.git` folder. Do not upload `.env`, `data/`, `node_modules/` or database files. Select **Vite**, Node **24.x**, build **npm run build**, output **dist**. The project root must contain `package.json` and `vercel.json`.
+4. Deploy the updated commit. If you changed variables after a deployment, **Deployments → latest deployment → Redeploy**.
+5. Open **/api/health** on your website. Success shows `ok: true`, `database: "Postgres"`, `version: "1.9.10"`. A 404 means the new API files have not been deployed. A setup error names the setting to fix.
+6. Open the site, click **Sign in** and use the team username/password. Open the same URL in another browser and sign in there too. Earth plans → Mars reviews/starts → Earth monitors. Check a message and completed task on both sides, then reload to confirm persistence.
 
-## Local use
-`npm start` installs, builds and starts the app at http://127.0.0.1:3000. Node 22.12+ is required; Node 24 is recommended. No environment settings are needed. The fresh database is `data/marswalk-v2.sqlite`; an older `marswalk.sqlite` is left untouched and is not auto-imported. The ZIP contains no personal database.
+The first connection creates empty tables in the private `marswalk` schema. Existing Postgres records are preserved. The connection user needs permission to create that schema/tables; no SQL copy/paste is required. Do not expose `marswalk` through the Supabase Data API. No Supabase browser keys, SDK or Realtime setup is required; the app polls its API each second.
 
-For local Postgres, put the settings in `.env`; npm start loads them. Prefer a fresh Supabase project for a clean start. Existing Postgres records are preserved on restart, not silently erased.
+## If it still fails
 
-`docker compose up --build -d` uses SQLite in the persistent `mission-data` volume unless DATABASE_URL is configured. For SQLite hosting, use one service instance and a persistent disk; set MARSWALK_DB to its path. Static-only hosting cannot run this Node API. Supabase removes the need for a local persistent mission disk; attachments remain in database records (64 MB API request limit), suitable for a small team prototype.
+| Result | Fix |
+|---|---|
+| `/api/health` returns 404 | Deploy the new code, not only environment variables. Check Vercel's root directory. |
+| `DATABASE_URL` setup error | Paste the complete `postgresql://...` string with the password filled in. |
+| Password rejected | Correct the database password in the URL, then redeploy. |
+| Certificate error | Download the CA certificate from Supabase database settings. Add its full PEM text as `DATABASE_CA_CERT` in Vercel, then redeploy. Certificate verification stays enabled. |
+| Other connection error | Check Vercel function logs, the exact pooler host/user, and whether the Supabase project is running. |
+| Origin not allowed | Set `PUBLIC_ORIGIN` to your exact HTTPS website address and redeploy. |
 
-## Sources and limits
-- https://supabase.com/docs/guides/database/connecting-to-postgres
-- https://supabase.com/docs/guides/platform/ssl-enforcement
-- https://node-postgres.com/features/ssl
-- https://node-postgres.com/features/transactions
+## Limits
 
-Verified locally: two browser sessions share movement, tasks, notes and two-way messages; ending a walk archives it and closes Mission control. HTTP tests verify disk persistence after restart and reject follower overwrites. Postgres SQL/transactions use PGlite tests, not a hosted Supabase connection. This package has not been connected to your Supabase account or deployed publicly. Hosting/account setup is still required. Keep database backups through your provider; never commit a personal database.
+- Mission data is behind one shared team login. Earth/Mars are views, not separately authorized roles. The static interface and bundled science assets remain public.
+- Keep one controller browser open; it advances the simulation. A Postgres lease allows only one controller. If it disconnects, takeover pauses an active walk for review.
+- Vercel uploads are limited here to **4 MB of JSON per request**, including encoded photos/audio. Larger media needs object storage; it is not added in this deployment fix. Long record lists use streamed responses.
+- API and SQL tests cover separate server instances, shared tasks/messages/notes, persistence and controller ownership. They use local PGlite, not your hosted Supabase account. Your live deployment still needs the setup and two-browser check above.
+
+## Local or persistent Node hosting
+
+`npm start` runs locally on Node 24 with an empty SQLite database at `data/marswalk-v2.sqlite`; older files are not imported or deleted. For local Postgres, copy `.env.example` to `.env` and fill in the settings.
+
+A persistent Node host can still use **Session pooler**, `HOST=0.0.0.0`, its assigned `PORT`, and `node --experimental-sqlite server/index.mjs` after building. SQLite hosting needs a persistent disk and one server instance. Docker remains supported. Optional `DATABASE_CA_FILE` points to a mounted provider certificate.
+
+Sources: [Supabase connections](https://supabase.com/docs/guides/database/connecting-to-postgres), [Vercel Node functions](https://vercel.com/docs/functions/runtimes/node-js), [Vercel limits](https://vercel.com/docs/functions/limitations).

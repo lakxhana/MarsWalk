@@ -1,3 +1,4 @@
+import {apiRequest as api} from './apiClient';
 // Shared mission API persistence
 // Stores scientific observations, delayed communication messages, and field tasks.
 // Safely migrates existing localStorage entries without deletion.
@@ -141,13 +142,6 @@ export interface ExportDataPayload {
 }
 
 // Legacy import is explicit only; fresh databases start empty.
-async function api<T>(path: string, method = 'GET', value?: unknown): Promise<T> {
-  let response: Response;
-  try {response = await fetch(`/api/${path}`, {method, headers: {'Content-Type':'application/json'}, body:value === undefined ? undefined : JSON.stringify(value)});}
-  catch {throw new Error('Database server is unavailable. Keep npm start running and retry.');}
-  if(!response.ok) {const error = await response.json().catch(()=>({error:'Database request failed'}));throw new Error(error.error || 'Database request failed');}
-  return response.json() as Promise<T>;
-}
 export const getStoredMission = <T,>() => api<T | null>('mission');
 export const saveStoredMission = (value: unknown) => api('mission','PUT',value);
 export async function migrateLegacyNotebook(): Promise<number> {

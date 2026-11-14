@@ -1,9 +1,9 @@
-# MARSWalk 1.9.9
+# MARSWalk 1.9.10
 
 A Mars exploration prototype with a shared Earth/Mars mission.
 
 ## Run
-Use Node.js 22.12+ (24 recommended). In this folder:
+Use Node.js 24. In this folder:
 ```bash
 npm start
 ```
@@ -38,11 +38,11 @@ Exact sources, units, equations and code locations: [DATA-AND-CALCULATIONS.md](D
 Open the **same server URL** on both devices and select Earth/Mars. Progress, tasks, messages and reports share one database; updates poll each second.
 
 - Local: SQLite. Hosted SQLite needs a persistent disk and one server instance.
-- Recommended online: **Supabase Postgres + a Node web service**. Set server-side `DATABASE_URL`, `PUBLIC_ORIGIN`, `HOST` and team password; see [DEPLOY.md](DEPLOY.md).
+- Online: **Vercel + Supabase Postgres**. Deploy the whole project and set `DATABASE_URL`, `PUBLIC_ORIGIN` and the team login. Follow [DEPLOY.md](DEPLOY.md). A persistent Node host is also supported.
 - Keep a controller browser open. Another client can take over after disconnect; the walk resumes paused for review. Roles are views in one team workspace.
 - Live mode: 1× / no delay. Mars delay: 1× / five-minute delay. Demo: 5× / no delay. Earth shows delivered reports.
 
-No database, credentials or active mission is included. Cloud setup and deployment are still required; static hosting alone cannot run the API.
+No database, credentials or active mission is included. Cloud setup is required. Vercel API functions are included; static files alone cannot save missions. Vercel uploads: up to 4 MB per JSON request, including encoded media.
 
 ## Checks
 ```bash

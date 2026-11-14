@@ -1,25 +1,36 @@
 import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
-import {validateRecord} from './database.mjs';
+import {validateRecord} from './validation.mjs';
 const collections=['observations','messages','tasks'];
 const kinds=['draft','sendPlan','accept','request','crew','investigate','walkMode','end','return','resumeSaved','mode','evidence','healthReplay'];
 const replyKeys=['replyText','replySentAtSimTime','replyDeliveredAtSimTime','replyPlanVersion','scienceTeamAuthor','planDifference','replyAdviceContext'];
 function validateMission(v){if(!v||!Number.isFinite(v.simTime)||!Number.isFinite(v.surfacePose?.x)||!Number.isFinite(v.surfacePose?.z))throw new Error('Invalid mission state');}
 function validateCollection(c){if(!collections.includes(c))throw new Error('Unknown collection');}
-export async function postgresConfig(connectionString,caFile){
+export async function postgresConfig(connectionString,caFile,{serverless=false,ca}={}){
  const url=new URL(connectionString);
  if(!['postgres:','postgresql:'].includes(url.protocol))throw new Error('DATABASE_URL must be a Postgres URL');
  // Prevent URL options silently replacing strict certificate verification.
  for(const key of ['sslmode','sslcert','sslkey','sslrootcert','ssl'])url.searchParams.delete(key);
- return {connectionString:url.toString(),max:5,connectionTimeoutMillis:15000,ssl:{rejectUnauthorized:true,...(caFile?{ca:await readFile(caFile,'utf8')}:{})}};
+ return {connectionString:url.toString(),max:serverless?1:5,idleTimeoutMillis:10000,allowExitOnIdle:serverless,connectionTimeoutMillis:10000,ssl:{rejectUnauthorized:true,...(ca?{ca:ca.replace(/\\n/g,'\n')}:caFile?{ca:await readFile(caFile,'utf8')}:{})}};
 }
-export async function openPostgres({connectionString,caFile,pool:injectedPool,now}={}){
- const pool=injectedPool??new Pool(await postgresConfig(connectionString,caFile));
- const schema=await readFile(new URL('./schema.sql',import.meta.url),'utf8');
- await pool.query(schema);
- await pool.query('INSERT INTO marswalk.metadata(id,value) VALUES($1,$2) ON CONFLICT DO NOTHING',['database-id',randomUUID()]);
- const databaseId=(await pool.query('SELECT value FROM marswalk.metadata WHERE id=$1',['database-id'])).rows[0].value;
+export async function openPostgres({connectionString,caFile,ca,serverless=false,pool:injectedPool,now}={}){
+ const pool=injectedPool??new Pool(await postgresConfig(connectionString,caFile,{serverless,ca}));
+ if(!injectedPool)pool.on('error',error=>console.error('MARSWalk idle database connection closed',error.code||'DATABASE_ERROR'));
+ let databaseId;
+ try {
+  const schema=await readFile(new URL('./schema.sql',import.meta.url),'utf8');
+  const client=await pool.connect();
+  try {
+   await client.query('BEGIN');
+   // Serialize schema initialization across independent Vercel cold starts.
+   await client.query("SELECT pg_advisory_xact_lock(hashtext('marswalk:schema'))");
+   await client.query(schema);
+   await client.query('INSERT INTO marswalk.metadata(id,value) VALUES($1,$2) ON CONFLICT DO NOTHING',['database-id',randomUUID()]);
+   databaseId=(await client.query('SELECT value FROM marswalk.metadata WHERE id=$1',['database-id'])).rows[0].value;
+   await client.query('COMMIT');
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }catch(error){if(!injectedPool)await pool.end().catch(()=>{});throw error;}
  async function transaction(fn){const client=await pool.connect();try{await client.query('BEGIN');const result=await fn(client);await client.query('COMMIT');return result;}catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}}
  async function saveMission(client,value){validateMission(value);await client.query('INSERT INTO marswalk.mission(id,payload) VALUES(1,$1::jsonb) ON CONFLICT(id) DO UPDATE SET payload=EXCLUDED.payload',[JSON.stringify(value)]);}
  async function mission(client=pool){return (await client.query('SELECT payload FROM marswalk.mission WHERE id=1')).rows[0]?.payload??null;}
